@@ -9,7 +9,7 @@ final class SystemStatusController: ObservableObject {
     private let coordinator: ActivityCoordinator
     private let reader: SystemStatusReading
     private var monitorTask: Task<Void, Never>?
-    private var audioTick = 0
+    private var batteryTick = 0
 
     init(
         coordinator: ActivityCoordinator,
@@ -27,12 +27,12 @@ final class SystemStatusController: ObservableObject {
 
         monitorTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled, let self else { return }
                 refreshAudio()
-                audioTick += 1
-                if audioTick >= 5 {
-                    audioTick = 0
+                batteryTick += 1
+                if batteryTick >= 120 {
+                    batteryTick = 0
                     refreshBattery()
                 }
                 updateMessage()
@@ -43,7 +43,7 @@ final class SystemStatusController: ObservableObject {
     func stop() {
         monitorTask?.cancel()
         monitorTask = nil
-        audioTick = 0
+        batteryTick = 0
         message = "系统状态监听已暂停。"
     }
 

@@ -45,6 +45,13 @@ final class MusicSnapshotParserTests: XCTestCase {
 
 @MainActor
 final class MusicControllerTests: XCTestCase {
+    func testPollingSlowsDownWhenMusicIsNotPlaying() {
+        XCTAssertEqual(MusicController.pollingInterval(for: .playing), .seconds(1))
+        XCTAssertEqual(MusicController.pollingInterval(for: .paused), .seconds(2))
+        XCTAssertEqual(MusicController.pollingInterval(for: .stopped), .seconds(2))
+        XCTAssertEqual(MusicController.pollingInterval(for: .unavailable), .seconds(2))
+    }
+
     func testPlayingSnapshotCreatesMusicActivity() {
         let coordinator = ActivityCoordinator()
         let provider = MusicProviderStub(result: .success(makeSnapshot(state: .playing)))

@@ -35,9 +35,13 @@ final class TimerController: ObservableObject {
 
         tickTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(250))
-                guard !Task.isCancelled, let self else { return }
-                refresh(now: Date())
+                guard let self else { return }
+                let isActive = state.phase == .running || state.phase == .ringing
+                try? await Task.sleep(for: isActive ? .milliseconds(250) : .seconds(1))
+                guard !Task.isCancelled else { return }
+                if state.phase == .running || state.phase == .ringing {
+                    refresh(now: Date())
+                }
             }
         }
     }

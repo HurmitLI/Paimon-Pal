@@ -28,9 +28,10 @@ final class MusicController: ObservableObject {
         refresh()
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                try? await Task.sleep(for: Self.pollingInterval(for: snapshot.playbackState))
                 guard !Task.isCancelled else { return }
-                self?.refresh()
+                refresh()
             }
         }
     }
@@ -87,6 +88,10 @@ final class MusicController: ObservableObject {
 
     func openSource() {
         provider.openSource()
+    }
+
+    static func pollingInterval(for state: MusicPlaybackState) -> Duration {
+        state == .playing ? .seconds(1) : .seconds(2)
     }
 
     private func synchronizeActivity(with snapshot: MusicSnapshot) {

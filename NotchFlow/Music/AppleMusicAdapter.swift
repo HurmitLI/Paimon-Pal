@@ -14,6 +14,7 @@ final class AppleMusicAdapter: MusicPlaybackProviding {
     private let bundleIdentifier = "com.apple.Music"
     private var cachedTrackID = ""
     private var cachedArtworkData: Data?
+    private lazy var compiledMetadataScript = NSAppleScript(source: metadataScript)
 
     func readSnapshot() -> Result<MusicSnapshot, MusicServiceError> {
         let installed = NSWorkspace.shared.urlForApplication(
@@ -39,7 +40,7 @@ final class AppleMusicAdapter: MusicPlaybackProviding {
             ))
         }
 
-        switch execute(script: metadataScript) {
+        switch execute(script: compiledMetadataScript) {
         case .failure(let error):
             return .failure(error)
         case .success(let descriptor):
@@ -146,7 +147,13 @@ final class AppleMusicAdapter: MusicPlaybackProviding {
     private func execute(
         script source: String
     ) -> Result<NSAppleEventDescriptor, MusicServiceError> {
-        guard let script = NSAppleScript(source: source) else {
+        execute(script: NSAppleScript(source: source))
+    }
+
+    private func execute(
+        script: NSAppleScript?
+    ) -> Result<NSAppleEventDescriptor, MusicServiceError> {
+        guard let script else {
             return .failure(.scriptUnavailable)
         }
 
