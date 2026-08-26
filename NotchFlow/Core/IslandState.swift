@@ -47,12 +47,26 @@ struct IslandActivity: Identifiable, Equatable {
     let kind: IslandActivityKind
     let title: String
     let detail: String?
+    let systemSymbol: String?
+    let progress: Double?
 
-    init(id: String, kind: IslandActivityKind, title: String, detail: String? = nil) {
+    init(
+        id: String,
+        kind: IslandActivityKind,
+        title: String,
+        detail: String? = nil,
+        systemSymbol: String? = nil,
+        progress: Double? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.title = title
         self.detail = detail
+        self.systemSymbol = systemSymbol
+        self.progress = progress.flatMap { value in
+            guard value.isFinite, (0...1).contains(value) else { return nil }
+            return value
+        }
     }
 }
 

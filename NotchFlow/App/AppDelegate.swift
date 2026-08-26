@@ -16,12 +16,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let coordinator = ActivityCoordinator()
         let motion = MotionPreferences()
         let screenService = ScreenGeometryService()
+        let music = MusicController(coordinator: coordinator)
+        let fileShelf = FileShelfController(coordinator: coordinator)
+        let systemStatus = SystemStatusController(coordinator: coordinator)
+        let timer = TimerController(coordinator: coordinator)
         let controller = IslandPanelController(
             coordinator: coordinator,
             motion: motion,
-            screenService: screenService
+            screenService: screenService,
+            music: music,
+            fileShelf: fileShelf,
+            systemStatus: systemStatus,
+            timer: timer
         )
         panelController = controller
         controller.show()
+        music.start()
+        fileShelf.start()
+        systemStatus.start()
+        timer.start()
     }
 }

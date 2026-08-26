@@ -26,5 +26,7 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>用于读取和控制您正在使用的 Apple Music 播放状态。</string>
 </dict>
 </plist>

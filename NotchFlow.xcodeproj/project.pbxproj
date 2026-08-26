@@ -19,6 +19,26 @@
 		A2000000000000000000000B /* IslandLayoutCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* IslandLayoutCalculatorTests.swift */; };
 		A2000000000000000000000C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* XCTest.framework */; };
 		A2000000000000000000000D /* UtilityWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* UtilityWindowController.swift */; };
+		A2000000000000000000000E /* MusicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* MusicModels.swift */; };
+		A2000000000000000000000F /* AppleMusicAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000013 /* AppleMusicAdapter.swift */; };
+		A20000000000000000000010 /* MusicController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000014 /* MusicController.swift */; };
+		A20000000000000000000011 /* MusicControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000015 /* MusicControlView.swift */; };
+		A20000000000000000000012 /* MusicSnapshotParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000016 /* MusicSnapshotParserTests.swift */; };
+		A20000000000000000000013 /* FileShelfModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000017 /* FileShelfModels.swift */; };
+		A20000000000000000000014 /* FileShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000018 /* FileShelfStore.swift */; };
+		A20000000000000000000015 /* FileShelfController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000019 /* FileShelfController.swift */; };
+		A20000000000000000000016 /* FileShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001A /* FileShelfView.swift */; };
+		A20000000000000000000017 /* FileShelfStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001B /* FileShelfStoreTests.swift */; };
+		A20000000000000000000018 /* SystemStatusModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001C /* SystemStatusModels.swift */; };
+		A20000000000000000000019 /* SystemStatusReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001D /* SystemStatusReader.swift */; };
+		A2000000000000000000001A /* SystemStatusController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001E /* SystemStatusController.swift */; };
+		A2000000000000000000001B /* SystemStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000001F /* SystemStatusView.swift */; };
+		A2000000000000000000001C /* SystemStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000020 /* SystemStatusTests.swift */; };
+		A2000000000000000000001D /* TimerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000021 /* TimerModels.swift */; };
+		A2000000000000000000001E /* TimerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000022 /* TimerStore.swift */; };
+		A2000000000000000000001F /* TimerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000023 /* TimerController.swift */; };
+		A20000000000000000000020 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000024 /* TimerView.swift */; };
+		A20000000000000000000021 /* TimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000025 /* TimerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +69,26 @@
 		B2000000000000000000000F /* NotchFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotchFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000010 /* NotchFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotchFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000011 /* UtilityWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityWindowController.swift; sourceTree = "<group>"; };
+		B20000000000000000000012 /* MusicModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicModels.swift; sourceTree = "<group>"; };
+		B20000000000000000000013 /* AppleMusicAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicAdapter.swift; sourceTree = "<group>"; };
+		B20000000000000000000014 /* MusicController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicController.swift; sourceTree = "<group>"; };
+		B20000000000000000000015 /* MusicControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicControlView.swift; sourceTree = "<group>"; };
+		B20000000000000000000016 /* MusicSnapshotParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicSnapshotParserTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000017 /* FileShelfModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShelfModels.swift; sourceTree = "<group>"; };
+		B20000000000000000000018 /* FileShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShelfStore.swift; sourceTree = "<group>"; };
+		B20000000000000000000019 /* FileShelfController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShelfController.swift; sourceTree = "<group>"; };
+		B2000000000000000000001A /* FileShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShelfView.swift; sourceTree = "<group>"; };
+		B2000000000000000000001B /* FileShelfStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShelfStoreTests.swift; sourceTree = "<group>"; };
+		B2000000000000000000001C /* SystemStatusModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatusModels.swift; sourceTree = "<group>"; };
+		B2000000000000000000001D /* SystemStatusReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatusReader.swift; sourceTree = "<group>"; };
+		B2000000000000000000001E /* SystemStatusController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatusController.swift; sourceTree = "<group>"; };
+		B2000000000000000000001F /* SystemStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatusView.swift; sourceTree = "<group>"; };
+		B20000000000000000000020 /* SystemStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemStatusTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000021 /* TimerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerModels.swift; sourceTree = "<group>"; };
+		B20000000000000000000022 /* TimerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerStore.swift; sourceTree = "<group>"; };
+		B20000000000000000000023 /* TimerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerController.swift; sourceTree = "<group>"; };
+		B20000000000000000000024 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
+		B20000000000000000000025 /* TimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +115,10 @@
 				920000000000000000000005 /* Screen */,
 				920000000000000000000006 /* Window */,
 				920000000000000000000007 /* UI */,
+				92000000000000000000000C /* Music */,
+				92000000000000000000000D /* FileShelf */,
+				92000000000000000000000E /* SystemStatus */,
+				92000000000000000000000F /* Timer */,
 				92000000000000000000000B /* Resources */,
 			);
 			path = NotchFlow;
@@ -84,11 +128,15 @@
 		920000000000000000000004 /* Core */ = {isa = PBXGroup; children = (B20000000000000000000003, B20000000000000000000004, B20000000000000000000005,); path = Core; sourceTree = "<group>"; };
 		920000000000000000000005 /* Screen */ = {isa = PBXGroup; children = (B20000000000000000000006,); path = Screen; sourceTree = "<group>"; };
 		920000000000000000000006 /* Window */ = {isa = PBXGroup; children = (B20000000000000000000007, B20000000000000000000008, B20000000000000000000011,); path = Window; sourceTree = "<group>"; };
-		920000000000000000000007 /* UI */ = {isa = PBXGroup; children = (B20000000000000000000009,); path = UI; sourceTree = "<group>"; };
-		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B,); path = NotchFlowTests; sourceTree = "<group>"; };
+		920000000000000000000007 /* UI */ = {isa = PBXGroup; children = (B20000000000000000000009, B20000000000000000000015, B2000000000000000000001A, B2000000000000000000001F, B20000000000000000000024,); path = UI; sourceTree = "<group>"; };
+		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025,); path = NotchFlowTests; sourceTree = "<group>"; };
 		920000000000000000000009 /* Frameworks */ = {isa = PBXGroup; children = (B2000000000000000000000E,); name = Frameworks; sourceTree = "<group>"; };
 		92000000000000000000000A /* Products */ = {isa = PBXGroup; children = (B2000000000000000000000F, B20000000000000000000010,); name = Products; sourceTree = "<group>"; };
 		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D,); path = Resources; sourceTree = "<group>"; };
+		92000000000000000000000C /* Music */ = {isa = PBXGroup; children = (B20000000000000000000012, B20000000000000000000013, B20000000000000000000014,); path = Music; sourceTree = "<group>"; };
+		92000000000000000000000D /* FileShelf */ = {isa = PBXGroup; children = (B20000000000000000000017, B20000000000000000000018, B20000000000000000000019,); path = FileShelf; sourceTree = "<group>"; };
+		92000000000000000000000E /* SystemStatus */ = {isa = PBXGroup; children = (B2000000000000000000001C, B2000000000000000000001D, B2000000000000000000001E,); path = SystemStatus; sourceTree = "<group>"; };
+		92000000000000000000000F /* Timer */ = {isa = PBXGroup; children = (B20000000000000000000021, B20000000000000000000022, B20000000000000000000023,); path = Timer; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -161,10 +209,26 @@
 				A20000000000000000000008,
 				A20000000000000000000009,
 				A2000000000000000000000D,
+				A2000000000000000000000E,
+				A2000000000000000000000F,
+				A20000000000000000000010,
+				A20000000000000000000011,
+				A20000000000000000000013,
+				A20000000000000000000014,
+				A20000000000000000000015,
+				A20000000000000000000016,
+				A20000000000000000000018,
+				A20000000000000000000019,
+				A2000000000000000000001A,
+				A2000000000000000000001B,
+				A2000000000000000000001D,
+				A2000000000000000000001E,
+				A2000000000000000000001F,
+				A20000000000000000000020,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B,); runOnlyForDeploymentPostprocessing = 0; };
+		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

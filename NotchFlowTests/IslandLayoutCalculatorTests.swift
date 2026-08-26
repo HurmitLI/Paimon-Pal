@@ -40,11 +40,13 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertEqual(external.frame.maxY - frame.maxY, 6)
     }
 
-    func testPhysicalHoverUsesTheSameSevenPointBottomHitAreaAsSilentState() {
-        let metrics = IslandLayoutCalculator.metrics(for: .hoverPreview, geometry: notchedScreen)
+    func testPhysicalHoverKeepsCompactActivityOutlineStable() {
+        let compact = IslandLayoutCalculator.metrics(for: .compact, geometry: notchedScreen)
+        let hover = IslandLayoutCalculator.metrics(for: .hoverPreview, geometry: notchedScreen)
 
-        XCTAssertEqual(metrics.size.width, notchedScreen.notchRect!.width + 116)
-        XCTAssertEqual(metrics.size.height, notchedScreen.notchRect!.height + 7)
+        XCTAssertEqual(hover.size, compact.size)
+        XCTAssertEqual(hover.cornerRadius, compact.cornerRadius)
+        XCTAssertEqual(hover.size.height, notchedScreen.notchRect!.height + 7)
     }
 
     func testEveryPhysicalIslandStateUsesTheSameNonBlockingHeight() {

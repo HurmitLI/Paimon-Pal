@@ -7,6 +7,10 @@ final class IslandPanelController {
     private let coordinator: ActivityCoordinator
     private let motion: MotionPreferences
     private let screenService: ScreenGeometryService
+    private let music: MusicController
+    private let fileShelf: FileShelfController
+    private let systemStatus: SystemStatusController
+    private let timer: TimerController
     private let panel: IslandPanel
     private var cancellables: Set<AnyCancellable> = []
     private var outsideClickMonitor: Any?
@@ -18,11 +22,19 @@ final class IslandPanelController {
     init(
         coordinator: ActivityCoordinator,
         motion: MotionPreferences,
-        screenService: ScreenGeometryService
+        screenService: ScreenGeometryService,
+        music: MusicController,
+        fileShelf: FileShelfController,
+        systemStatus: SystemStatusController,
+        timer: TimerController
     ) {
         self.coordinator = coordinator
         self.motion = motion
         self.screenService = screenService
+        self.music = music
+        self.fileShelf = fileShelf
+        self.systemStatus = systemStatus
+        self.timer = timer
         panel = IslandPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -62,7 +74,11 @@ final class IslandPanelController {
         let root = IslandRootView(
             coordinator: coordinator,
             motion: motion,
-            onOpenUtilityWindow: { [weak self] in self?.openUtilityWindow() }
+            music: music,
+            fileShelf: fileShelf,
+            systemStatus: systemStatus,
+            timer: timer,
+            onOpenUtilityWindow: { [weak self] section in self?.openUtilityWindow(section) }
         )
         .ignoresSafeArea()
         let hostingView = IslandHostingView(rootView: root)
@@ -133,11 +149,16 @@ final class IslandPanelController {
         }
     }
 
-    private func openUtilityWindow() {
+    private func openUtilityWindow(_ section: UtilitySection) {
         if utilityWindowController == nil {
-            utilityWindowController = UtilityWindowController()
+            utilityWindowController = UtilityWindowController(
+                music: music,
+                fileShelf: fileShelf,
+                systemStatus: systemStatus,
+                timer: timer
+            )
         }
-        utilityWindowController?.show()
+        utilityWindowController?.show(section: section)
         coordinator.collapse()
     }
 

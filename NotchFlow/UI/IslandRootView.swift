@@ -1,10 +1,15 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct IslandRootView: View {
     @ObservedObject var coordinator: ActivityCoordinator
     @ObservedObject var motion: MotionPreferences
-    let onOpenUtilityWindow: () -> Void
+    @ObservedObject var music: MusicController
+    @ObservedObject var fileShelf: FileShelfController
+    @ObservedObject var systemStatus: SystemStatusController
+    @ObservedObject var timer: TimerController
+    let onOpenUtilityWindow: (UtilitySection) -> Void
 
     @State private var isDropTargeted = false
 
@@ -16,20 +21,23 @@ struct IslandRootView: View {
             .background(.black)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .animation(motion.swiftUIAnimation, value: coordinator.state)
+            .animation(motion.swiftUIAnimation, value: animationPresentation)
             .onTapGesture { handleIslandTap() }
-            .dropDestination(for: URL.self, action: { _, _ in
-                coordinator.endFileReceiving()
-                return false
-            }, isTargeted: { targeted in
-                isDropTargeted = targeted
-                if targeted { coordinator.beginFileReceiving() }
-                else { coordinator.endFileReceiving() }
-            })
+            .onDrop(
+                of: [UTType.fileURL],
+                isTargeted: $isDropTargeted,
+                perform: fileShelf.importDroppedProviders
+            )
+            .onChange(of: isDropTargeted) { _, targeted in
+                fileShelf.setDropTargeted(targeted)
+            }
             .contextMenu {
                 Button("模拟紧凑活动") { simulateCompactActivity() }
                 Button("模拟临时 HUD") { simulateHUD() }
-                Button("打开普通功能窗口") { onOpenUtilityWindow() }
+                Button("打开音乐窗口") { onOpenUtilityWindow(.music) }
+                Button("打开文件架") { onOpenUtilityWindow(.files) }
+                Button("打开系统状态") { onOpenUtilityWindow(.system) }
+                Button("打开计时器") { onOpenUtilityWindow(.timer) }
                 Divider()
                 Button("清除模拟活动") { coordinator.clearAllActivities() }
                 Button("退出 NotchFlow") { NSApp.terminate(nil) }
@@ -42,60 +50,114 @@ struct IslandRootView: View {
         case .silent:
             Color.clear
         case .compact(let activity):
-            HStack {
-                Image(systemName: icon(for: activity.kind))
-                    .foregroundStyle(.green)
-                Spacer()
-                Text(activity.title).font(.caption.weight(.semibold))
-            }
+            compactActivityContent(activity, identityColor: .green)
         case .temporaryHUD(let activity):
             HStack(spacing: 0) {
-                Image(systemName: icon(for: activity.kind))
+                Image(systemName: activity.systemSymbol ?? icon(for: activity.kind))
                     .font(.body.weight(.semibold))
                     .frame(width: 28)
                 Spacer(minLength: 0)
-                Text(activity.title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .frame(maxWidth: 66, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(activity.title)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                    if let progress = activity.progress {
+                        systemProgress(progress)
+                    }
+                }
+                .frame(width: 66, alignment: .trailing)
             }
         case .hoverPreview(let activity):
-            HStack(spacing: 0) {
-                Image(systemName: activity.map { icon(for: $0.kind) } ?? "circle.hexagongrid.fill")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.cyan)
-                    .frame(width: 32)
-                Spacer(minLength: 0)
-                if let activity {
-                    Text(activity.title)
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                        .frame(maxWidth: 58, alignment: .trailing)
-                } else {
-                    Image(systemName: "chevron.down")
-                        .font(.caption.bold())
-                        .foregroundStyle(.white.opacity(0.72))
-                        .frame(width: 32)
-                }
+            if let activity {
+                // Hover may oscillate around the physical camera cutout. Keep the
+                // exact compact geometry so entering the notch never makes the
+                // artwork, text, capsule radius, or window appear to twitch.
+                compactActivityContent(activity, identityColor: .cyan)
+            } else {
+                Color.clear
             }
         case .expanded(let activity):
-            HStack(spacing: 0) {
-                Button {
-                    simulateCompactActivity()
-                } label: {
-                    Image(systemName: activity.map { icon(for: $0.kind) } ?? "play.fill")
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
+            if activity?.kind == .music {
+                HStack(spacing: 0) {
+                    HStack(spacing: 4) {
+                        musicButton(command: .previous, icon: "backward.fill", help: "上一首")
+                        musicButton(
+                            command: .playPause,
+                            icon: music.snapshot.playbackState == .playing
+                                ? "pause.fill"
+                                : "play.fill",
+                            help: music.snapshot.playbackState == .playing ? "暂停" : "播放"
+                        )
+                    }
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                Button(action: onOpenUtilityWindow) {
-                    Image(systemName: "macwindow")
-                        .frame(width: 28, height: 28)
+                    HStack(spacing: 4) {
+                        musicButton(command: .next, icon: "forward.fill", help: "下一首")
+                        Button(action: { onOpenUtilityWindow(.music) }) {
+                            Image(systemName: "macwindow")
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .help("打开完整音乐窗口")
+                    }
                 }
-                .buttonStyle(.plain)
-                .help("打开普通功能窗口")
+            } else if activity?.kind == .timer || activity?.kind == .ringingTimer {
+                HStack(spacing: 0) {
+                    Button(action: handleTimerPrimaryAction) {
+                        Image(systemName: timerPrimaryIcon)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .help(timerPrimaryHelp)
+
+                    Spacer(minLength: 0)
+
+                    HStack(spacing: 2) {
+                        Text(timer.state.phase == .ringing
+                             ? "结束"
+                             : TimerTextFormatter.clock(seconds: timer.remainingSeconds))
+                            .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                            .foregroundStyle(timer.remainingSeconds <= 60 ? .orange : .white)
+                            .lineLimit(1)
+                        Button(action: { onOpenUtilityWindow(.timer) }) {
+                            Image(systemName: "macwindow")
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .help("打开完整计时器窗口")
+                    }
+                }
+            } else if activity?.kind == .systemHUD || activity?.kind == .criticalSystem {
+                HStack(spacing: 0) {
+                    Image(systemName: activity?.systemSymbol ?? icon(for: activity?.kind ?? .systemHUD))
+                        .foregroundStyle(activity?.kind == .criticalSystem ? .orange : .white)
+                        .frame(width: 28, height: 28)
+                    Spacer(minLength: 0)
+                    Button(action: { onOpenUtilityWindow(.system) }) {
+                        Image(systemName: "macwindow")
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .help("打开系统状态窗口")
+                }
+            } else {
+                HStack(spacing: 0) {
+                    Button(action: simulateCompactActivity) {
+                        Image(systemName: "play.fill")
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 0)
+
+                    Button(action: { onOpenUtilityWindow(.files) }) {
+                        Image(systemName: "macwindow")
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                    .help("打开普通功能窗口")
+                }
             }
         case .fileReceiving:
             HStack(spacing: 0) {
@@ -104,9 +166,16 @@ struct IslandRootView: View {
                     .foregroundStyle(.green)
                     .frame(width: 28)
                 Spacer(minLength: 0)
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .frame(width: 28)
+                if fileShelf.isImporting {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.green)
+                        .frame(width: 28)
+                } else {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(.green)
+                        .frame(width: 28)
+                }
             }
         }
     }
@@ -125,7 +194,7 @@ struct IslandRootView: View {
         switch coordinator.state.presentation {
         case .silent, .compact: 17
         case .temporaryHUD, .fileReceiving: 18
-        case .hoverPreview: 18
+        case .hoverPreview: 17
         case .expanded: 18
         }
     }
@@ -140,6 +209,109 @@ struct IslandRootView: View {
         case .music: "music.note"
         case .systemHUD: "speaker.wave.2.fill"
         }
+    }
+
+    private func musicButton(
+        command: MusicCommand,
+        icon: String,
+        help: String
+    ) -> some View {
+        Button { music.send(command) } label: {
+            Image(systemName: icon)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .disabled(music.isPerformingCommand)
+    }
+
+    private var animationPresentation: IslandPresentation {
+        coordinator.state.presentation == .hoverPreview
+            ? .compact
+            : coordinator.state.presentation
+    }
+
+    private func compactActivityContent(
+        _ activity: IslandActivity,
+        identityColor: Color
+    ) -> some View {
+        HStack {
+            activityIdentity(
+                for: activity,
+                color: activityColor(activity, fallback: identityColor),
+                size: 22
+            )
+            Spacer()
+            Text(activity.title).font(.caption.weight(.semibold))
+        }
+    }
+
+    @ViewBuilder
+    private func activityIdentity(
+        for activity: IslandActivity,
+        color: Color,
+        size: CGFloat
+    ) -> some View {
+        if activity.kind == .music, music.snapshot.artworkData != nil {
+            MusicArtworkView(data: music.snapshot.artworkData, size: size)
+        } else if (activity.kind == .timer || activity.kind == .ringingTimer),
+                  music.snapshot.isActive,
+                  music.snapshot.artworkData != nil {
+            MusicArtworkView(data: music.snapshot.artworkData, size: size)
+        } else {
+            Image(systemName: activity.systemSymbol ?? icon(for: activity.kind))
+                .foregroundStyle(color)
+                .frame(width: size, height: size)
+        }
+    }
+
+    private func activityColor(_ activity: IslandActivity, fallback: Color) -> Color {
+        if activity.kind == .ringingTimer ||
+            (activity.kind == .timer && activity.detail == "即将结束") {
+            return .orange
+        }
+        return fallback
+    }
+
+    private var timerPrimaryIcon: String {
+        switch timer.state.phase {
+        case .running: "pause.fill"
+        case .paused: "play.fill"
+        case .ringing: "checkmark"
+        case .idle: "timer"
+        }
+    }
+
+    private var timerPrimaryHelp: String {
+        switch timer.state.phase {
+        case .running: "暂停计时"
+        case .paused: "继续计时"
+        case .ringing: "确认计时结束"
+        case .idle: "打开计时器"
+        }
+    }
+
+    private func handleTimerPrimaryAction() {
+        switch timer.state.phase {
+        case .running: timer.pause()
+        case .paused: timer.resume()
+        case .ringing: timer.acknowledge()
+        case .idle: onOpenUtilityWindow(.timer)
+        }
+    }
+
+    private func systemProgress(_ progress: Double) -> some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.24))
+                Capsule()
+                    .fill(.white)
+                    .frame(width: proxy.size.width * progress)
+            }
+        }
+        .frame(width: 66, height: 3)
+        .accessibilityLabel("状态进度")
+        .accessibilityValue("\(Int((progress * 100).rounded()))%")
     }
 
     private func simulateCompactActivity() {

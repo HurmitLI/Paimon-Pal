@@ -41,7 +41,7 @@ enum IslandLayoutCalculator {
                 : CGSize(width: 300, height: 52)
         case .hoverPreview:
             size = physical
-                ? CGSize(width: notchWidth + 116, height: notchHeight + 7)
+                ? CGSize(width: notchWidth + 120, height: notchHeight + 7)
                 : CGSize(width: 280, height: 52)
         case .expanded:
             size = physical
@@ -58,7 +58,7 @@ enum IslandLayoutCalculator {
         switch presentation {
         case .silent, .compact: radius = physical ? 17 : size.height / 2
         case .temporaryHUD, .fileReceiving: radius = physical ? 18 : size.height / 2
-        case .hoverPreview: radius = physical ? 18 : size.height / 2
+        case .hoverPreview: radius = physical ? 17 : size.height / 2
         case .expanded: radius = physical ? 18 : size.height / 2
         }
         return IslandLayoutMetrics(size: size, topOffset: topOffset, cornerRadius: radius)

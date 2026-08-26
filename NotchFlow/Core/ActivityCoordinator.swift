@@ -25,15 +25,14 @@ final class ActivityCoordinator: ObservableObject {
     }
 
     func upsert(_ activity: IslandActivity) {
+        guard activities[activity.id] != activity else { return }
         activities[activity.id] = activity
-        guard !isUserOperating, state != .fileReceiving else { return }
-        restoreBaseState()
+        reconcileAfterActivitiesChanged()
     }
 
     func removeActivity(id: String) {
-        activities.removeValue(forKey: id)
-        guard !isUserOperating, state != .fileReceiving else { return }
-        restoreBaseState()
+        guard activities.removeValue(forKey: id) != nil else { return }
+        reconcileAfterActivitiesChanged()
     }
 
     func pointerEntered() {
@@ -72,7 +71,7 @@ final class ActivityCoordinator: ObservableObject {
 
     func showExpanded() {
         cancelPointerTasks()
-        state = .expanded(highestActivity)
+        state = .expanded(state.activity ?? highestActivity)
     }
 
     func collapse() {
@@ -86,7 +85,8 @@ final class ActivityCoordinator: ObservableObject {
     }
 
     func showTemporaryHUD(_ activity: IslandActivity, duration: Duration = .milliseconds(1500)) {
-        if isUserOperating {
+        if state.presentation == .fileReceiving ||
+            (isUserOperating && activity.kind != .criticalSystem) {
             queuedHUD = QueuedHUD(activity: activity, duration: duration)
             return
         }
@@ -128,6 +128,17 @@ final class ActivityCoordinator: ObservableObject {
     private func restoreBaseState() {
         dismissTask?.cancel()
         state = baseState
+    }
+
+    private func reconcileAfterActivitiesChanged() {
+        switch state.presentation {
+        case .silent, .compact:
+            restoreBaseState()
+        case .hoverPreview:
+            state = .hoverPreview(highestActivity)
+        case .temporaryHUD, .expanded, .fileReceiving:
+            break
+        }
     }
 
     private func presentHUD(_ activity: IslandActivity, duration: Duration = .milliseconds(1500)) {

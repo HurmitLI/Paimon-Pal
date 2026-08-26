@@ -80,4 +80,29 @@ final class ActivityCoordinatorTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(450))
         XCTAssertEqual(coordinator.state.presentation, .silent)
     }
+
+    func testEquivalentActivityRefreshDoesNotInterruptHover() async {
+        let coordinator = ActivityCoordinator()
+        let music = IslandActivity(id: "music", kind: .music, title: "Song", detail: "Artist")
+        coordinator.upsert(music)
+        coordinator.pointerEntered()
+        try? await Task.sleep(for: .milliseconds(230))
+        XCTAssertEqual(coordinator.state.presentation, .hoverPreview)
+
+        coordinator.upsert(music)
+
+        XCTAssertEqual(coordinator.state.presentation, .hoverPreview)
+    }
+
+    func testTrackChangeUpdatesContentWithoutCollapsingHover() async {
+        let coordinator = ActivityCoordinator()
+        coordinator.upsert(IslandActivity(id: "music", kind: .music, title: "First"))
+        coordinator.pointerEntered()
+        try? await Task.sleep(for: .milliseconds(230))
+
+        coordinator.upsert(IslandActivity(id: "music", kind: .music, title: "Second"))
+
+        XCTAssertEqual(coordinator.state.presentation, .hoverPreview)
+        XCTAssertEqual(coordinator.state.activity?.title, "Second")
+    }
 }
