@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timerController: TimerController?
     private var preferences: AppPreferences?
     private var settingsWindowController: SettingsWindowController?
+    private var onboardingWindowController: OnboardingWindowController?
     private var statusItemController: StatusItemController?
     private var pauseExpiryTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
@@ -32,11 +33,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fileShelf = FileShelfController(coordinator: coordinator)
         let systemStatus = SystemStatusController(coordinator: coordinator)
         let timer = TimerController(coordinator: coordinator)
+        let onboardingWindow = OnboardingWindowController(preferences: preferences)
         let settingsWindow = SettingsWindowController(
             preferences: preferences,
             loginItem: loginItem,
             timer: timer,
-            screenService: screenService
+            screenService: screenService,
+            onShowOnboarding: { [weak onboardingWindow] in onboardingWindow?.show() }
         )
         let controller = IslandPanelController(
             coordinator: coordinator,
@@ -69,10 +72,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timerController = timer
         self.preferences = preferences
         settingsWindowController = settingsWindow
+        onboardingWindowController = onboardingWindow
         statusItemController = statusItem
 
         observePreferences(preferences)
         applyRuntimeConfiguration()
+        if !preferences.hasCompletedOnboarding {
+            onboardingWindow.show()
+        }
     }
 
     func applicationShouldHandleReopen(
@@ -101,6 +108,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] _ in self?.applyRuntimeConfiguration() }
             .store(in: &cancellables)
 
+        preferences.$hasCompletedOnboarding
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.applyRuntimeConfiguration() }
+            .store(in: &cancellables)
+
         Publishers.CombineLatest4(
             preferences.$musicEnabled,
             preferences.$fileShelfEnabled,
@@ -116,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let preferences else { return }
         pauseExpiryTask?.cancel()
 
-        if preferences.musicEnabled && !preferences.isPaused {
+        if preferences.musicEnabled && !preferences.isPaused && preferences.hasCompletedOnboarding {
             musicController?.start()
         } else {
             musicController?.stop()

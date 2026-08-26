@@ -47,6 +47,7 @@ final class AppPreferences: ObservableObject {
         static let fullScreenBehavior = "settings.display.fullScreenBehavior"
         static let externalDisplayTopOffset = "settings.display.externalTopOffset"
         static let floatingCapsuleWidthAdjustment = "settings.display.floatingCapsuleWidthAdjustment"
+        static let onboardingCompleted = "settings.onboarding.completed"
     }
 
     @Published var menuBarIconVisible: Bool {
@@ -100,6 +101,7 @@ final class AppPreferences: ObservableObject {
         }
     }
     @Published private(set) var pauseUntil: Date?
+    @Published private(set) var hasCompletedOnboarding: Bool
 
     private let defaults: UserDefaults
     private let now: () -> Date
@@ -131,6 +133,7 @@ final class AppPreferences: ObservableObject {
         floatingCapsuleWidthAdjustment = Self.boundedWidthAdjustment(
             defaults.object(forKey: Key.floatingCapsuleWidthAdjustment) as? Double ?? 0
         )
+        hasCompletedOnboarding = defaults.object(forKey: Key.onboardingCompleted) as? Bool ?? false
 
         if let storedDate = defaults.object(forKey: Key.pauseUntil) as? Date,
            storedDate > now() {
@@ -173,6 +176,16 @@ final class AppPreferences: ObservableObject {
         resume()
     }
 
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        defaults.set(true, forKey: Key.onboardingCompleted)
+    }
+
+    func resetOnboarding() {
+        hasCompletedOnboarding = false
+        defaults.removeObject(forKey: Key.onboardingCompleted)
+    }
+
     private func pause(until date: Date) {
         menuBarIconVisible = true
         pauseUntil = date
@@ -195,6 +208,11 @@ final class AppPreferences: ObservableObject {
             floatingCapsuleWidthAdjustment,
             forKey: Key.floatingCapsuleWidthAdjustment
         )
+        if hasCompletedOnboarding {
+            defaults.set(true, forKey: Key.onboardingCompleted)
+        } else {
+            defaults.removeObject(forKey: Key.onboardingCompleted)
+        }
         if let specificDisplayID {
             defaults.set(specificDisplayID, forKey: Key.specificDisplayID)
         } else {

@@ -45,6 +45,7 @@
 		A20000000000000000000025 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000029 /* StatusItemController.swift */; };
 		A20000000000000000000026 /* AppPreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000002A /* AppPreferencesTests.swift */; };
 		A20000000000000000000027 /* StatusItemControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000002B /* StatusItemControllerTests.swift */; };
+		A20000000000000000000028 /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000002C /* OnboardingWindowController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		B20000000000000000000029 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		B2000000000000000000002A /* AppPreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferencesTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000002B /* StatusItemControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemControllerTests.swift; sourceTree = "<group>"; };
+		B2000000000000000000002C /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,7 +153,7 @@
 		92000000000000000000000D /* FileShelf */ = {isa = PBXGroup; children = (B20000000000000000000017, B20000000000000000000018, B20000000000000000000019,); path = FileShelf; sourceTree = "<group>"; };
 		92000000000000000000000E /* SystemStatus */ = {isa = PBXGroup; children = (B2000000000000000000001C, B2000000000000000000001D, B2000000000000000000001E,); path = SystemStatus; sourceTree = "<group>"; };
 		92000000000000000000000F /* Timer */ = {isa = PBXGroup; children = (B20000000000000000000021, B20000000000000000000022, B20000000000000000000023,); path = Timer; sourceTree = "<group>"; };
-		920000000000000000000010 /* Settings */ = {isa = PBXGroup; children = (B20000000000000000000026, B20000000000000000000027, B20000000000000000000028,); path = Settings; sourceTree = "<group>"; };
+		920000000000000000000010 /* Settings */ = {isa = PBXGroup; children = (B20000000000000000000026, B20000000000000000000027, B20000000000000000000028, B2000000000000000000002C,); path = Settings; sourceTree = "<group>"; };
 		920000000000000000000011 /* MenuBar */ = {isa = PBXGroup; children = (B20000000000000000000029,); path = MenuBar; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -245,6 +247,7 @@
 				A20000000000000000000023,
 				A20000000000000000000024,
 				A20000000000000000000025,
+				A20000000000000000000028,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

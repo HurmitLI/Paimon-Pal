@@ -12,7 +12,8 @@ final class SettingsWindowController {
         preferences: AppPreferences,
         loginItem: LoginItemController,
         timer: TimerController,
-        screenService: ScreenGeometryService
+        screenService: ScreenGeometryService,
+        onShowOnboarding: @escaping () -> Void
     ) {
         let permissionCenter = PermissionCenterModel(timer: timer)
         window = NSWindow(
@@ -32,7 +33,8 @@ final class SettingsWindowController {
             preferences: preferences,
             loginItem: loginItem,
             permissionCenter: permissionCenter,
-            screenService: screenService
+            screenService: screenService,
+            onShowOnboarding: onShowOnboarding
         ))
         hostingView.sizingOptions = []
         hostingView.autoresizingMask = [.width, .height]
@@ -51,6 +53,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case features
     case display
     case permissions
+    case about
 
     var id: Self { self }
 
@@ -60,6 +63,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .features: "功能"
         case .display: "显示"
         case .permissions: "权限"
+        case .about: "关于"
         }
     }
 }
@@ -69,6 +73,7 @@ private struct SettingsRootView: View {
     @ObservedObject var loginItem: LoginItemController
     @ObservedObject var permissionCenter: PermissionCenterModel
     @ObservedObject var screenService: ScreenGeometryService
+    let onShowOnboarding: () -> Void
     @State private var selection: SettingsSection = .general
 
     var body: some View {
@@ -76,7 +81,7 @@ private struct SettingsRootView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("NotchFlow 设置")
                     .font(.title2.bold())
-                Text("第四阶段开发段 4.3 · 多屏与全屏适配")
+                Text("v\(versionText) · 本地原生 macOS 工具")
                     .foregroundStyle(.secondary)
             }
 
@@ -100,6 +105,8 @@ private struct SettingsRootView: View {
                         displayContent
                     case .permissions:
                         PermissionSettingsView(model: permissionCenter)
+                    case .about:
+                        aboutContent
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -277,6 +284,50 @@ private struct SettingsRootView: View {
         }
     }
 
+    private var aboutContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            GroupBox("使用说明") {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("查看首次使用说明")
+                            .font(.headline)
+                        Text("重新查看刘海操作、四项功能、权限申请和文件副本策略。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("打开说明…", action: onShowOnboarding)
+                }
+                .padding(8)
+            }
+
+            GroupBox("隐私与数据") {
+                VStack(alignment: .leading, spacing: 9) {
+                    Label("不采集行为分析，不上传音乐、文件或系统状态。", systemImage: "hand.raised.fill")
+                    Label("Apple Music 信息只用于本机显示与控制。", systemImage: "music.note")
+                    Label("文件架只访问主动拖入或选择的内容；暂存副本默认保留 24 小时。", systemImage: "folder.badge.gearshape")
+                    Label("Finder 原文件不会被 NotchFlow 移动或删除。", systemImage: "checkmark.shield")
+                }
+                .font(.callout)
+                .padding(8)
+            }
+
+            GroupBox("版本与支持范围") {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("NotchFlow v\(versionText)")
+                        .font(.headline)
+                    Text("最低支持 macOS 14；当前正式验证设备为 Apple Silicon 刘海屏 MacBook Pro。")
+                    Text("音乐首版支持 Apple Music；Spotify 暂缓。屏幕亮度因缺少稳定公开接口而不可用。")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(8)
+            }
+        }
+    }
+
     private func featureToggle(
         _ title: String,
         description: String,
@@ -349,6 +400,12 @@ private struct SettingsRootView: View {
     private var signedWidthAdjustment: String {
         let value = Int(preferences.floatingCapsuleWidthAdjustment)
         return value > 0 ? "+\(value) pt" : "\(value) pt"
+    }
+
+    private var versionText: String {
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "\(short) (\(build))"
     }
 }
 

@@ -3,6 +3,22 @@ import XCTest
 
 @MainActor
 final class AppPreferencesTests: XCTestCase {
+    func testOnboardingDefaultsToIncompleteAndPersistsCompletion() {
+        let suite = "NotchFlowTests.onboarding.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let initial = AppPreferences(defaults: defaults)
+        XCTAssertFalse(initial.hasCompletedOnboarding)
+
+        initial.completeOnboarding()
+        XCTAssertTrue(initial.hasCompletedOnboarding)
+        XCTAssertTrue(AppPreferences(defaults: defaults).hasCompletedOnboarding)
+
+        initial.resetOnboarding()
+        XCTAssertFalse(AppPreferences(defaults: defaults).hasCompletedOnboarding)
+    }
+
     private var suiteName: String!
     private var defaults: UserDefaults!
 
