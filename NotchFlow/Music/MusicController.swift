@@ -35,6 +35,17 @@ final class MusicController: ObservableObject {
         }
     }
 
+    func stop() {
+        pollTask?.cancel()
+        pollTask = nil
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach(center.removeObserver)
+        workspaceObservers.removeAll()
+        pausedSince = nil
+        coordinator.removeActivity(id: "music.appleMusic")
+        message = "Apple Music 监听已暂停。"
+    }
+
     func refresh() {
         switch provider.readSnapshot() {
         case .success(let newSnapshot):

@@ -26,12 +26,12 @@ final class TimerEngineTests: XCTestCase {
 
     func testRestoreRecoversFutureTimerAndDropsLongExpiredTimer() {
         var future = TimerRuntimeState.idle
-        future.begin(seconds: 120, now: startDate)
+        XCTAssertTrue(future.begin(seconds: 120, now: startDate))
         XCTAssertEqual(future.reconcileAfterRestore(now: startDate.addingTimeInterval(60)), .none)
         XCTAssertEqual(future.remainingSeconds(at: startDate.addingTimeInterval(60)), 60)
 
         var expired = TimerRuntimeState.idle
-        expired.begin(seconds: 10, now: startDate)
+        XCTAssertTrue(expired.begin(seconds: 10, now: startDate))
         XCTAssertEqual(expired.reconcileAfterRestore(now: startDate.addingTimeInterval(50)), .autoDismissed)
         XCTAssertEqual(expired, .idle)
     }
@@ -67,6 +67,35 @@ final class TimerEngineTests: XCTestCase {
         store.clear()
         XCTAssertNil(store.load())
     }
+
+    func testCorruptTimerPayloadIsClearedInsteadOfRestored() {
+        let suiteName = "NotchFlowTests.Timer.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsTimerStore(defaults: defaults, key: "timer")
+        defaults.set(Data("not-json".utf8), forKey: "timer")
+
+        XCTAssertNil(store.load())
+        XCTAssertNil(defaults.object(forKey: "timer"))
+    }
+
+    func testSemanticallyInvalidTimerStateIsCleared() throws {
+        let suiteName = "NotchFlowTests.Timer.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsTimerStore(defaults: defaults, key: "timer")
+        let invalid = TimerRuntimeState(
+            phase: .running,
+            totalSeconds: 300,
+            endDate: nil,
+            pausedRemainingSeconds: nil,
+            ringingStartedAt: nil
+        )
+        defaults.set(try JSONEncoder().encode(invalid), forKey: "timer")
+
+        XCTAssertNil(store.load())
+        XCTAssertNil(defaults.object(forKey: "timer"))
+    }
 }
 
 @MainActor
@@ -91,6 +120,41 @@ final class TimerControllerTests: XCTestCase {
         timer.cancel()
         XCTAssertEqual(coordinator.state.presentation, .silent)
         XCTAssertNil(store.state)
+    }
+
+    func testStoppingControllerRemovesActivityButPreservesTimerState() {
+        let coordinator = ActivityCoordinator()
+        let store = MemoryTimerStore()
+        let timer = TimerController(coordinator: coordinator, store: store)
+        let now = Date()
+
+        timer.begin(seconds: 120, now: now)
+        XCTAssertEqual(coordinator.state.activity?.id, "timer.active")
+        XCTAssertNotNil(store.state)
+
+        timer.stop()
+
+        XCTAssertNil(coordinator.state.activity)
+        XCTAssertNotNil(store.state)
+        XCTAssertEqual(timer.state.phase, .running)
+        XCTAssertTrue(timer.message.contains("保留"))
+    }
+
+    func testNewControllerRestoresPersistedRunningTimer() {
+        let now = Date()
+        var persisted = TimerRuntimeState.idle
+        XCTAssertTrue(persisted.begin(seconds: 120, now: now))
+        let store = MemoryTimerStore()
+        store.state = persisted
+        let coordinator = ActivityCoordinator()
+        let restored = TimerController(coordinator: coordinator, store: store)
+
+        restored.start()
+        defer { restored.stop() }
+
+        XCTAssertEqual(restored.state.phase, .running)
+        XCTAssertGreaterThan(restored.remainingSeconds, 0)
+        XCTAssertEqual(coordinator.state.activity?.id, "timer.active")
     }
 }
 

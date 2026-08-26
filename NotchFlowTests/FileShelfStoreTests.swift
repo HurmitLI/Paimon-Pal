@@ -127,6 +127,52 @@ final class FileShelfStoreTests: XCTestCase {
         XCTAssertEqual(repaired.first?.displayName, "orphan.txt")
     }
 
+    func testCorruptIndexIsRebuiltFromManagedCopies() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let itemsDirectory = fixture.shelf.appendingPathComponent("Items", isDirectory: true)
+        try FileManager.default.createDirectory(at: itemsDirectory, withIntermediateDirectories: true)
+        let orphan = itemsDirectory.appendingPathComponent("survives.txt")
+        try Data("survives".utf8).write(to: orphan)
+        let indexURL = fixture.shelf.appendingPathComponent("index.json")
+        try Data("broken-index".utf8).write(to: indexURL)
+
+        let store = FileShelfStore(baseURL: fixture.shelf)
+        let recovered = try store.loadItems()
+
+        XCTAssertEqual(recovered.map(\.displayName), ["survives.txt"])
+        let repairedData = try Data(contentsOf: indexURL)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: repairedData) as? [[String: Any]])
+        XCTAssertEqual(json.count, 1)
+    }
+
+    @MainActor
+    func testNewControllerRestoresPersistedShelfCopies() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let source = fixture.sources.appendingPathComponent("restart.txt")
+        try Data("restart".utf8).write(to: source)
+        let store = FileShelfStore(baseURL: fixture.shelf)
+        _ = try store.importItems(from: [source])
+
+        let restoredController = FileShelfController(
+            coordinator: ActivityCoordinator(),
+            store: FileShelfStore(baseURL: fixture.shelf)
+        )
+        restoredController.start()
+        for _ in 0..<100 where restoredController.items.isEmpty {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        XCTAssertEqual(restoredController.items.map(\.displayName), ["restart.txt"])
+        XCTAssertEqual(
+            try Data(contentsOf: try XCTUnwrap(restoredController.items.first?.storedURL)),
+            Data("restart".utf8)
+        )
+    }
+
     func testExpiredCleanupOnlyDeletesManagedCopy() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }

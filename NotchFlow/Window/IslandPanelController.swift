@@ -11,13 +11,17 @@ final class IslandPanelController {
     private let fileShelf: FileShelfController
     private let systemStatus: SystemStatusController
     private let timer: TimerController
+    private let preferences: AppPreferences
     private let panel: IslandPanel
     private var cancellables: Set<AnyCancellable> = []
     private var outsideClickMonitor: Any?
     private var globalMouseMoveMonitor: Any?
     private var localMouseMoveMonitor: Any?
     private var pointerWasInside = false
+    private var runtimeRequestedVisible = false
+    private var spaceReconcileTask: Task<Void, Never>?
     private var utilityWindowController: UtilityWindowController?
+    private var onOpenSettings: (() -> Void)?
 
     init(
         coordinator: ActivityCoordinator,
@@ -26,7 +30,9 @@ final class IslandPanelController {
         music: MusicController,
         fileShelf: FileShelfController,
         systemStatus: SystemStatusController,
-        timer: TimerController
+        timer: TimerController,
+        preferences: AppPreferences,
+        onOpenSettings: @escaping () -> Void
     ) {
         self.coordinator = coordinator
         self.motion = motion
@@ -35,6 +41,8 @@ final class IslandPanelController {
         self.fileShelf = fileShelf
         self.systemStatus = systemStatus
         self.timer = timer
+        self.preferences = preferences
+        self.onOpenSettings = onOpenSettings
         panel = IslandPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -50,9 +58,28 @@ final class IslandPanelController {
     }
 
     func show() {
-        updateFrame(animated: false)
-        panel.orderFrontRegardless()
-        reconcilePointerLocation()
+        runtimeRequestedVisible = true
+        screenService.refreshAvailableDisplays()
+        reconcileVisibility(animated: false)
+        // Launch Services may still be handing focus back to the previous app here.
+        // Recheck after the foreground window and active Space have settled.
+        scheduleSpaceReconciliation()
+    }
+
+    func hide() {
+        runtimeRequestedVisible = false
+        pointerWasInside = false
+        coordinator.collapse()
+        panel.orderOut(nil)
+    }
+
+    var isExpanded: Bool {
+        coordinator.state.presentation == .expanded
+    }
+
+    func toggleExpanded() {
+        guard panel.isVisible else { return }
+        coordinator.toggleExpanded()
     }
 
     private func configurePanel() {
@@ -78,7 +105,9 @@ final class IslandPanelController {
             fileShelf: fileShelf,
             systemStatus: systemStatus,
             timer: timer,
-            onOpenUtilityWindow: { [weak self] section in self?.openUtilityWindow(section) }
+            preferences: preferences,
+            onOpenUtilityWindow: { [weak self] section in self?.openUtilityWindow(section) },
+            onOpenSettings: { [weak self] in self?.onOpenSettings?() }
         )
         .ignoresSafeArea()
         let hostingView = IslandHostingView(rootView: root)
@@ -93,6 +122,7 @@ final class IslandPanelController {
             .dropFirst()
             .sink { [weak self] state in
                 self?.updateFrame(for: state.presentation, animated: true)
+                self?.reconcileVisibility(animated: false)
             }
             .store(in: &cancellables)
 
@@ -105,8 +135,54 @@ final class IslandPanelController {
 
     private func observeScreens() {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
-            .sink { [weak self] _ in self?.updateFrame(animated: false) }
+            .sink { [weak self] _ in
+                self?.screenService.refreshAvailableDisplays()
+                self?.reconcileVisibility(animated: false)
+            }
             .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .sink { [weak self] _ in self?.scheduleSpaceReconciliation() }
+            .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .sink { [weak self] _ in self?.scheduleSpaceReconciliation() }
+            .store(in: &cancellables)
+
+        preferences.$displayTargetMode
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.reconcileVisibility(animated: false) }
+            .store(in: &cancellables)
+        preferences.$specificDisplayID
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.reconcileVisibility(animated: false) }
+            .store(in: &cancellables)
+        preferences.$fullScreenBehavior
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.reconcileVisibility(animated: false) }
+            .store(in: &cancellables)
+        preferences.$externalDisplayTopOffset
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.reconcileVisibility(animated: false) }
+            .store(in: &cancellables)
+        preferences.$floatingCapsuleWidthAdjustment
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.reconcileVisibility(animated: false) }
+            .store(in: &cancellables)
+    }
+
+    private func scheduleSpaceReconciliation() {
+        spaceReconcileTask?.cancel()
+        spaceReconcileTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.reconcileVisibility(animated: false)
+        }
     }
 
     private func installOutsideClickMonitor() {
@@ -135,6 +211,10 @@ final class IslandPanelController {
     }
 
     private func reconcilePointerLocation() {
+        guard panel.isVisible else {
+            pointerWasInside = false
+            return
+        }
         let isInside = panel.frame.contains(NSEvent.mouseLocation)
         guard isInside != pointerWasInside else { return }
         pointerWasInside = isInside
@@ -155,7 +235,8 @@ final class IslandPanelController {
                 music: music,
                 fileShelf: fileShelf,
                 systemStatus: systemStatus,
-                timer: timer
+                timer: timer,
+                preferences: preferences
             )
         }
         utilityWindowController?.show(section: section)
@@ -166,9 +247,17 @@ final class IslandPanelController {
         for presentation: IslandPresentation? = nil,
         animated: Bool
     ) {
-        guard let screen = screenService.current() else { return }
+        guard let screen = screenService.current(
+            mode: preferences.displayTargetMode,
+            specificDisplayID: preferences.specificDisplayID
+        ) else { return }
         let resolvedPresentation = presentation ?? coordinator.state.presentation
-        let metrics = IslandLayoutCalculator.metrics(for: resolvedPresentation, geometry: screen)
+        let metrics = IslandLayoutCalculator.metrics(
+            for: resolvedPresentation,
+            geometry: screen,
+            externalTopOffset: CGFloat(preferences.externalDisplayTopOffset),
+            floatingWidthAdjustment: CGFloat(preferences.floatingCapsuleWidthAdjustment)
+        )
         let targetFrame = IslandLayoutCalculator.frame(for: metrics, on: screen)
 
         guard animated, panel.isVisible else {
@@ -183,5 +272,37 @@ final class IslandPanelController {
                 : CAMediaTimingFunction(controlPoints: 0.22, 0.82, 0.28, 1.0)
             panel.animator().setFrame(targetFrame, display: true)
         }
+    }
+
+    private func reconcileVisibility(animated: Bool) {
+        guard let screen = screenService.current(
+            mode: preferences.displayTargetMode,
+            specificDisplayID: preferences.specificDisplayID
+        ) else {
+            panel.orderOut(nil)
+            return
+        }
+        let shouldShow = PanelVisibilityPolicy.shouldShow(
+            runtimeRequestedVisible: runtimeRequestedVisible,
+            isTargetScreenFullscreen: screenService.isFullscreen(on: screen),
+            behavior: preferences.fullScreenBehavior,
+            state: coordinator.state
+        )
+
+        guard shouldShow else {
+            pointerWasInside = false
+            if coordinator.state.presentation == .expanded ||
+                coordinator.state.presentation == .hoverPreview {
+                coordinator.collapse()
+            }
+            panel.orderOut(nil)
+            return
+        }
+
+        updateFrame(animated: animated)
+        if !panel.isVisible {
+            panel.orderFrontRegardless()
+        }
+        reconcilePointerLocation()
     }
 }

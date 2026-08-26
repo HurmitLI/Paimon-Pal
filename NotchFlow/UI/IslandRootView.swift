@@ -9,7 +9,9 @@ struct IslandRootView: View {
     @ObservedObject var fileShelf: FileShelfController
     @ObservedObject var systemStatus: SystemStatusController
     @ObservedObject var timer: TimerController
+    @ObservedObject var preferences: AppPreferences
     let onOpenUtilityWindow: (UtilitySection) -> Void
+    let onOpenSettings: () -> Void
 
     @State private var isDropTargeted = false
 
@@ -26,18 +28,31 @@ struct IslandRootView: View {
             .onDrop(
                 of: [UTType.fileURL],
                 isTargeted: $isDropTargeted,
-                perform: fileShelf.importDroppedProviders
+                perform: { providers in
+                    guard preferences.fileShelfEnabled else { return false }
+                    return fileShelf.importDroppedProviders(providers)
+                }
             )
             .onChange(of: isDropTargeted) { _, targeted in
-                fileShelf.setDropTargeted(targeted)
+                fileShelf.setDropTargeted(preferences.fileShelfEnabled && targeted)
             }
             .contextMenu {
+                Button("打开设置…") { onOpenSettings() }
+                Divider()
                 Button("模拟紧凑活动") { simulateCompactActivity() }
                 Button("模拟临时 HUD") { simulateHUD() }
-                Button("打开音乐窗口") { onOpenUtilityWindow(.music) }
-                Button("打开文件架") { onOpenUtilityWindow(.files) }
-                Button("打开系统状态") { onOpenUtilityWindow(.system) }
-                Button("打开计时器") { onOpenUtilityWindow(.timer) }
+                if preferences.musicEnabled {
+                    Button("打开音乐窗口") { onOpenUtilityWindow(.music) }
+                }
+                if preferences.fileShelfEnabled {
+                    Button("打开文件架") { onOpenUtilityWindow(.files) }
+                }
+                if preferences.systemStatusEnabled {
+                    Button("打开系统状态") { onOpenUtilityWindow(.system) }
+                }
+                if preferences.timerEnabled {
+                    Button("打开计时器") { onOpenUtilityWindow(.timer) }
+                }
                 Divider()
                 Button("清除模拟活动") { coordinator.clearAllActivities() }
                 Button("退出 NotchFlow") { NSApp.terminate(nil) }

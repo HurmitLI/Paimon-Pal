@@ -72,6 +72,22 @@ final class MusicControllerTests: XCTestCase {
         XCTAssertEqual(coordinator.state.presentation, .silent)
     }
 
+    func testPermissionWithdrawalRemovesActivityWithoutCrashingOtherModules() {
+        let coordinator = ActivityCoordinator()
+        coordinator.upsert(IslandActivity(
+            id: "music.appleMusic",
+            kind: .music,
+            title: "Old Song"
+        ))
+        let provider = MusicProviderStub(result: .failure(.permissionDenied))
+        let controller = MusicController(coordinator: coordinator, provider: provider)
+
+        controller.refresh()
+
+        XCTAssertEqual(coordinator.state.presentation, .silent)
+        XCTAssertTrue(controller.message.contains("权限"))
+    }
+
     private func makeSnapshot(state: MusicPlaybackState) -> MusicSnapshot {
         MusicSnapshot(
             installed: true,

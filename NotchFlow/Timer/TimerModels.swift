@@ -30,6 +30,52 @@ struct TimerRuntimeState: Codable, Equatable {
 
     var isActive: Bool { phase != .idle }
 
+    /// Returns a canonical state only when the persisted fields form a valid
+    /// timer. Invalid combinations are rejected so corrupt defaults cannot
+    /// create an immortal or nonsensical countdown after relaunch.
+    func normalizedForRestore() -> TimerRuntimeState? {
+        switch phase {
+        case .idle:
+            return .idle
+        case .running:
+            guard (1...359_999).contains(totalSeconds),
+                  let endDate,
+                  endDate.timeIntervalSinceReferenceDate.isFinite
+            else { return nil }
+            return TimerRuntimeState(
+                phase: .running,
+                totalSeconds: totalSeconds,
+                endDate: endDate,
+                pausedRemainingSeconds: nil,
+                ringingStartedAt: nil
+            )
+        case .paused:
+            guard (1...359_999).contains(totalSeconds),
+                  let pausedRemainingSeconds,
+                  (1...totalSeconds).contains(pausedRemainingSeconds)
+            else { return nil }
+            return TimerRuntimeState(
+                phase: .paused,
+                totalSeconds: totalSeconds,
+                endDate: nil,
+                pausedRemainingSeconds: pausedRemainingSeconds,
+                ringingStartedAt: nil
+            )
+        case .ringing:
+            guard (1...359_999).contains(totalSeconds),
+                  let ringingStartedAt,
+                  ringingStartedAt.timeIntervalSinceReferenceDate.isFinite
+            else { return nil }
+            return TimerRuntimeState(
+                phase: .ringing,
+                totalSeconds: totalSeconds,
+                endDate: nil,
+                pausedRemainingSeconds: nil,
+                ringingStartedAt: ringingStartedAt
+            )
+        }
+    }
+
     mutating func begin(seconds: Int, now: Date) -> Bool {
         guard (1...359_999).contains(seconds) else { return false }
         phase = .running

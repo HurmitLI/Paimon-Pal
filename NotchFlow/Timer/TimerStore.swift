@@ -17,7 +17,16 @@ struct UserDefaultsTimerStore: TimerStateStoring {
 
     func load() -> TimerRuntimeState? {
         guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(TimerRuntimeState.self, from: data)
+        guard let decoded = try? JSONDecoder().decode(TimerRuntimeState.self, from: data),
+              let normalized = decoded.normalizedForRestore()
+        else {
+            clear()
+            return nil
+        }
+        if normalized != decoded {
+            save(normalized)
+        }
+        return normalized
     }
 
     func save(_ state: TimerRuntimeState) {

@@ -51,6 +51,16 @@ final class FileShelfController: ObservableObject {
         }
     }
 
+    func stop() {
+        isDropTargeted = false
+        if !isImporting {
+            coordinator.endFileReceiving()
+        }
+        message = isImporting
+            ? "文件架已关闭；当前复制完成后将停止接收新文件。"
+            : "文件架已关闭；暂存副本仍会保留。"
+    }
+
     func chooseItems() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true

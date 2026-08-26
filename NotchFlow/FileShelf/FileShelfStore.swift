@@ -10,6 +10,11 @@ final class FileShelfStore: @unchecked Sendable {
     private let indexURL: URL
     private let now: @Sendable () -> Date
 
+    private struct IndexReadResult {
+        let items: [FileShelfItem]
+        let needsRewrite: Bool
+    }
+
     init(
         fileManager: FileManager = .default,
         baseURL: URL? = nil,
@@ -37,7 +42,8 @@ final class FileShelfStore: @unchecked Sendable {
 
     func loadItems() throws -> [FileShelfItem] {
         try prepareStorage()
-        let persisted = readIndex()
+        let indexResult = readIndex()
+        let persisted = indexResult.items
         let actualURLs = try fileManager.contentsOfDirectory(
             at: itemsURL,
             includingPropertiesForKeys: [.isDirectoryKey, .creationDateKey],
@@ -54,7 +60,7 @@ final class FileShelfStore: @unchecked Sendable {
         }
 
         repaired.sort { $0.createdAt > $1.createdAt }
-        if repaired != persisted {
+        if indexResult.needsRewrite || repaired != persisted {
             try writeIndex(repaired)
         }
         return repaired
@@ -235,11 +241,19 @@ final class FileShelfStore: @unchecked Sendable {
         )
     }
 
-    private func readIndex() -> [FileShelfItem] {
-        guard let data = try? Data(contentsOf: indexURL) else { return [] }
+    private func readIndex() -> IndexReadResult {
+        guard fileManager.fileExists(atPath: indexURL.path) else {
+            return IndexReadResult(items: [], needsRewrite: false)
+        }
+        guard let data = try? Data(contentsOf: indexURL) else {
+            return IndexReadResult(items: [], needsRewrite: true)
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode([FileShelfItem].self, from: data)) ?? []
+        guard let items = try? decoder.decode([FileShelfItem].self, from: data) else {
+            return IndexReadResult(items: [], needsRewrite: true)
+        }
+        return IndexReadResult(items: items, needsRewrite: false)
     }
 
     private func writeIndex(_ items: [FileShelfItem]) throws {

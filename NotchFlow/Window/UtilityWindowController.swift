@@ -29,13 +29,16 @@ private final class UtilityWindowModel: ObservableObject {
 final class UtilityWindowController {
     private let window: NSWindow
     private let model = UtilityWindowModel()
+    private let preferences: AppPreferences
 
     init(
         music: MusicController,
         fileShelf: FileShelfController,
         systemStatus: SystemStatusController,
-        timer: TimerController
+        timer: TimerController,
+        preferences: AppPreferences
     ) {
+        self.preferences = preferences
         window = NSWindow(
             contentRect: CGRect(x: 0, y: 0, width: 460, height: 500),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -54,7 +57,8 @@ final class UtilityWindowController {
             music: music,
             fileShelf: fileShelf,
             systemStatus: systemStatus,
-            timer: timer
+            timer: timer,
+            preferences: preferences
         ))
         hostingView.sizingOptions = []
         hostingView.autoresizingMask = [.width, .height]
@@ -63,9 +67,22 @@ final class UtilityWindowController {
     }
 
     func show(section: UtilitySection = .music) {
-        model.selection = section
+        model.selection = isEnabled(section) ? section : firstEnabledSection ?? section
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private var firstEnabledSection: UtilitySection? {
+        UtilitySection.allCases.first(where: isEnabled)
+    }
+
+    private func isEnabled(_ section: UtilitySection) -> Bool {
+        switch section {
+        case .music: preferences.musicEnabled
+        case .files: preferences.fileShelfEnabled
+        case .system: preferences.systemStatusEnabled
+        case .timer: preferences.timerEnabled
+        }
     }
 }
 
@@ -75,6 +92,7 @@ private struct UtilityRootView: View {
     @ObservedObject var fileShelf: FileShelfController
     @ObservedObject var systemStatus: SystemStatusController
     @ObservedObject var timer: TimerController
+    @ObservedObject var preferences: AppPreferences
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -88,34 +106,63 @@ private struct UtilityRootView: View {
             Divider()
 
             Picker("功能", selection: $model.selection) {
-                ForEach(UtilitySection.allCases) { section in
+                ForEach(enabledSections) { section in
                     Text(section.title).tag(section)
                 }
             }
             .pickerStyle(.segmented)
 
-            Group {
-                switch model.selection {
-                case .music:
-                    ScrollView {
-                        MusicControlView(music: music)
-                            .padding(.vertical, 2)
+            if enabledSections.isEmpty {
+                ContentUnavailableView(
+                    "所有功能均已关闭",
+                    systemImage: "switch.2",
+                    description: Text("可在设置的“功能”页重新开启。")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Group {
+                    switch model.selection {
+                    case .music:
+                        ScrollView {
+                            MusicControlView(music: music)
+                                .padding(.vertical, 2)
+                        }
+                    case .files:
+                        FileShelfView(shelf: fileShelf)
+                    case .system:
+                        SystemStatusView(systemStatus: systemStatus)
+                    case .timer:
+                        TimerView(timer: timer)
                     }
-                case .files:
-                    FileShelfView(shelf: fileShelf)
-                case .system:
-                    SystemStatusView(systemStatus: systemStatus)
-                case .timer:
-                    TimerView(timer: timer)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            Text("第三阶段开发段 3.4：单计时器闭环。")
+            Text("第四阶段开发段 4.2：功能可独立开关。")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear { reconcileSelection() }
+        .onChange(of: enabledSections) { _, _ in reconcileSelection() }
+    }
+
+    private var enabledSections: [UtilitySection] {
+        UtilitySection.allCases.filter { section in
+            switch section {
+            case .music: preferences.musicEnabled
+            case .files: preferences.fileShelfEnabled
+            case .system: preferences.systemStatusEnabled
+            case .timer: preferences.timerEnabled
+            }
+        }
+    }
+
+    private func reconcileSelection() {
+        guard !enabledSections.contains(model.selection),
+              let first = enabledSections.first
+        else { return }
+        model.selection = first
     }
 }

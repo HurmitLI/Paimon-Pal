@@ -14,7 +14,7 @@ final class TimerController: ObservableObject {
     private let store: TimerStateStoring
     private var tickTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
-    private var notificationAuthorization: UNAuthorizationStatus = .notDetermined
+    private(set) var notificationAuthorization: UNAuthorizationStatus = .notDetermined
 
     init(
         coordinator: ActivityCoordinator,
@@ -40,6 +40,20 @@ final class TimerController: ObservableObject {
                 refresh(now: Date())
             }
         }
+    }
+
+    func stop() {
+        tickTask?.cancel()
+        tickTask = nil
+
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        observers.forEach { observer in
+            workspaceCenter.removeObserver(observer)
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+        coordinator.removeActivity(id: "timer.active")
+        message = "计时器已关闭；进行中的计时状态会保留。"
     }
 
     func begin(seconds: Int, now: Date = Date()) {
@@ -185,7 +199,7 @@ final class TimerController: ObservableObject {
         })
     }
 
-    private func refreshNotificationStatus() {
+    func refreshNotificationStatus() {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let settings = await UNUserNotificationCenter.current().notificationSettings()

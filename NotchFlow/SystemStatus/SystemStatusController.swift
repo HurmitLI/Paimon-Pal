@@ -40,6 +40,13 @@ final class SystemStatusController: ObservableObject {
         }
     }
 
+    func stop() {
+        monitorTask?.cancel()
+        monitorTask = nil
+        audioTick = 0
+        message = "系统状态监听已暂停。"
+    }
+
     func refreshNow() {
         refreshBattery()
         refreshAudio()
