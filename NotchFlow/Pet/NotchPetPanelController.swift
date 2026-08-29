@@ -85,6 +85,12 @@ final class NotchPetPanelController {
         reconcileVisibility()
     }
 
+    func celebrateSuccessForTesting() {
+        retreatTask?.cancel()
+        pet.celebrateSuccess()
+        reconcileVisibility()
+    }
+
     private func configurePanel() {
         panel.isFloatingPanel = true
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)

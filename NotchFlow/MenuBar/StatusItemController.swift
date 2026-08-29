@@ -14,6 +14,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var petIsListening: (() -> Bool)?
     var onTogglePetSpeaking: (() -> Void)?
     var petIsSpeaking: (() -> Bool)?
+    var onTestPetSuccess: (() -> Void)?
 #endif
 
     private let preferences: AppPreferences
@@ -89,6 +90,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         speaking.isEnabled = !preferences.isPaused
         menu.addItem(speaking)
+
+        let success = actionItem(
+            "测试派蒙成功反馈",
+            action: #selector(testPetSuccess),
+            key: ""
+        )
+        success.isEnabled = !preferences.isPaused
+        menu.addItem(success)
 #endif
 
         menu.addItem(.separator())
@@ -118,5 +127,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 #if DEBUG
     @objc private func togglePetListening() { onTogglePetListening?() }
     @objc private func togglePetSpeaking() { onTogglePetSpeaking?() }
+    @objc private func testPetSuccess() { onTestPetSuccess?() }
 #endif
 }

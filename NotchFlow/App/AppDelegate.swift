@@ -85,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.petIsSpeaking = { [weak petController] in
             petController?.isSpeaking ?? false
         }
+        statusItem.onTestPetSuccess = { [weak petController] in
+            petController?.celebrateSuccessForTesting()
+        }
 #endif
 
         panelController = controller

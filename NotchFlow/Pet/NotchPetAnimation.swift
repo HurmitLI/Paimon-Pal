@@ -8,6 +8,7 @@ enum NotchPetMotion: String, CaseIterable {
     case clickReaction
     case listening
     case speaking
+    case successCelebration
     case returnToSleep
 
     var resourceName: String {
@@ -18,13 +19,14 @@ enum NotchPetMotion: String, CaseIterable {
         case .clickReaction: "click-reaction-transparent-v1"
         case .listening: "listening-loop-transparent-v1"
         case .speaking: "speaking-loop-transparent-v1"
+        case .successCelebration: "success-celebration-transparent-v1"
         case .returnToSleep: "return-to-sleep-transparent-v1"
         }
     }
 
     var framesPerSecond: Int {
         switch self {
-        case .sleepToPeek, .returnToSleep: 8
+        case .sleepToPeek, .successCelebration, .returnToSleep: 8
         case .peekToEmerge, .clickReaction: 10
         case .idle, .listening, .speaking: 6
         }
