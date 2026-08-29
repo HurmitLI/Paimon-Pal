@@ -2,22 +2,12 @@ import SwiftUI
 
 struct NotchPetView: View {
     @ObservedObject var pet: NotchPetController
-    @State private var displayedImage: NSImage?
-    @State private var previousImage: NSImage?
-    @State private var blendProgress = 1.0
 
     var body: some View {
         ZStack(alignment: .top) {
             Color.clear
-            if pet.stage != .sleeping, let image = displayedImage ?? pet.currentImage {
-                ZStack {
-                    if let previousImage, blendProgress < 1 {
-                        petImage(previousImage)
-                            .opacity(1 - blendProgress)
-                    }
-                    petImage(image)
-                        .opacity(blendProgress)
-                }
+            if pet.stage != .sleeping, let image = pet.currentImage {
+                petImage(image)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(accessibilityLabel)
             }
@@ -25,25 +15,6 @@ struct NotchPetView: View {
         .frame(width: 180, height: 188)
         .clipped()
         .allowsHitTesting(false)
-        .onAppear {
-            displayedImage = pet.currentImage
-        }
-        .onChange(of: pet.frameSequence) { _, _ in
-            let nextImage = pet.currentImage
-            guard pet.frameTransitionDuration > 0, displayedImage != nil else {
-                previousImage = nil
-                displayedImage = nextImage
-                blendProgress = 1
-                return
-            }
-
-            previousImage = displayedImage
-            displayedImage = nextImage
-            blendProgress = 0
-            withAnimation(.linear(duration: pet.frameTransitionDuration)) {
-                blendProgress = 1
-            }
-        }
     }
 
     private func petImage(_ image: NSImage) -> some View {

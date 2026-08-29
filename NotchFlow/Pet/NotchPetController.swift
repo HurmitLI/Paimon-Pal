@@ -18,14 +18,11 @@ enum NotchPetStage: Equatable {
 final class NotchPetController: ObservableObject {
     @Published private(set) var stage: NotchPetStage = .sleeping
     @Published private(set) var currentImage: NSImage?
-    @Published private(set) var frameSequence: UInt = 0
-    @Published private(set) var frameTransitionDuration: TimeInterval = 0
     @Published private(set) var lastError: String?
 
     private let loader: NotchPetAssetLoader
     private var frameCache: [NotchPetMotion: [NSImage]] = [:]
     private var playbackTask: Task<Void, Never>?
-    private var lastPresentedStage: NotchPetStage?
 
     init(loader: NotchPetAssetLoader = NotchPetAssetLoader()) {
         self.loader = loader
@@ -163,9 +160,6 @@ final class NotchPetController: ObservableObject {
         stage = .sleeping
         do {
             currentImage = try frames(for: .sleepToPeek).first
-            frameSequence &+= 1
-            frameTransitionDuration = 0
-            lastPresentedStage = .sleeping
             lastError = nil
         } catch {
             currentImage = nil
@@ -197,7 +191,7 @@ final class NotchPetController: ObservableObject {
             lastError = nil
             for image in images {
                 guard !Task.isCancelled else { return false }
-                present(image, for: motion)
+                currentImage = image
                 try await Task.sleep(nanoseconds: frameInterval(for: motion))
             }
             return !Task.isCancelled
@@ -214,7 +208,7 @@ final class NotchPetController: ObservableObject {
             let images = try frames(for: .idle)
             guard let restingFrame = images.first else { return }
             lastError = nil
-            present(restingFrame, for: .idle)
+            currentImage = restingFrame
             var completedCycles = 0
             while !Task.isCancelled {
                 // 先保持安静，再播放一次短促的呼吸和眨眼；避免鼠标停在刘海时
@@ -222,10 +216,10 @@ final class NotchPetController: ObservableObject {
                 try await Task.sleep(for: .seconds(2))
                 for image in images.dropFirst() {
                     guard !Task.isCancelled else { return }
-                    present(image, for: .idle)
+                    currentImage = image
                     try await Task.sleep(nanoseconds: frameInterval(for: .idle))
                 }
-                present(restingFrame, for: .idle)
+                currentImage = restingFrame
                 try await Task.sleep(for: .seconds(5))
 
                 completedCycles += 1
@@ -235,10 +229,10 @@ final class NotchPetController: ObservableObject {
                     let flourishImages = try frames(for: flourish)
                     for image in flourishImages {
                         guard !Task.isCancelled else { return }
-                        present(image, for: flourish)
+                        currentImage = image
                         try await Task.sleep(nanoseconds: frameInterval(for: flourish))
                     }
-                    present(restingFrame, for: .idle)
+                    currentImage = restingFrame
                     try await Task.sleep(for: .seconds(4))
                 }
             }
@@ -257,7 +251,7 @@ final class NotchPetController: ObservableObject {
             while !Task.isCancelled {
                 for image in images {
                     guard !Task.isCancelled else { return }
-                    present(image, for: motion)
+                    currentImage = image
                     try await Task.sleep(nanoseconds: frameInterval(for: motion))
                 }
             }
@@ -279,14 +273,4 @@ final class NotchPetController: ObservableObject {
         UInt64(1_000_000_000 / max(motion.framesPerSecond, 1))
     }
 
-    private func present(_ image: NSImage, for motion: NotchPetMotion) {
-        // 只在同一状态的相邻关键帧之间融合。跨状态的端点已经做过
-        // 尺寸与脚底锚点校准，再叠两张图反而会出现双影。
-        frameTransitionDuration = lastPresentedStage == stage
-            ? motion.crossfadeDuration
-            : 0
-        currentImage = image
-        frameSequence &+= 1
-        lastPresentedStage = stage
-    }
 }

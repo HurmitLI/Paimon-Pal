@@ -47,12 +47,6 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertTrue(frames.allSatisfy { $0.size.width > 0 && $0.size.height > 0 })
     }
 
-    func testPetAnimationCompositesAtThirtyFramesPerSecond() {
-        XCTAssertEqual(NotchPetMotion.displayFramesPerSecond, 30)
-        XCTAssertLessThan(NotchPetMotion.idle.crossfadeDuration, 0.1)
-        XCTAssertGreaterThan(NotchPetMotion.listening.crossfadeDuration, 0)
-    }
-
     func testIdleChoreographyAddsAQuietGreetingWave() {
         XCTAssertNil(NotchPetIdleChoreography.flourish(afterCompletedCycles: 1))
         XCTAssertEqual(

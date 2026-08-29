@@ -33,14 +33,6 @@ enum NotchPetMotion: String, CaseIterable {
         }
     }
 
-    /// 角色素材保留原始关键帧节奏，相邻帧由系统合成过渡，以 30fps 为最低流畅度目标。
-    /// 这样不会把 8 帧动作直接加速，也不会为 4B 模型额外常驻几百 MB 图像内存。
-    static let displayFramesPerSecond = 30
-
-    var crossfadeDuration: TimeInterval {
-        0.45 / Double(max(framesPerSecond, 1))
-    }
-
     var gridRows: Int {
         self == .idle ? 4 : 2
     }
