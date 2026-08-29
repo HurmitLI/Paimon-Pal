@@ -39,6 +39,8 @@ struct NotchPetView: View {
             22
         case .listening:
             14
+        case .speaking:
+            18
         case .returning:
             18
         }
@@ -52,6 +54,7 @@ struct NotchPetView: View {
         case .idle: "宠物正在刘海旁待机"
         case .reacting: "宠物正在回应点击"
         case .listening: "宠物正在聆听"
+        case .speaking: "宠物正在回答"
         case .returning: "宠物正在返回刘海"
         }
     }

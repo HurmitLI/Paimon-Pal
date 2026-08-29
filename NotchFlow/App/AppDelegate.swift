@@ -78,6 +78,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.petIsListening = { [weak petController] in
             petController?.isListening ?? false
         }
+        statusItem.onTogglePetSpeaking = { [weak petController, weak statusItem] in
+            petController?.toggleSpeakingForTesting()
+            statusItem?.refreshMenu()
+        }
+        statusItem.petIsSpeaking = { [weak petController] in
+            petController?.isSpeaking ?? false
+        }
 #endif
 
         panelController = controller

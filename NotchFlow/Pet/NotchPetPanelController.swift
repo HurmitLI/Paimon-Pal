@@ -61,12 +61,26 @@ final class NotchPetPanelController {
         pet.isListening
     }
 
+    var isSpeaking: Bool {
+        pet.isSpeaking
+    }
+
     func toggleListeningForTesting() {
         retreatTask?.cancel()
         if pet.isListening {
             pet.stopListening()
         } else {
             pet.startListening()
+        }
+        reconcileVisibility()
+    }
+
+    func toggleSpeakingForTesting() {
+        retreatTask?.cancel()
+        if pet.isSpeaking {
+            pet.stopSpeaking()
+        } else {
+            pet.startSpeaking()
         }
         reconcileVisibility()
     }

@@ -14,10 +14,12 @@ final class StatusItemControllerTests: XCTestCase {
         var didOpenSettings = false
         var didToggleIsland = false
         var didToggleListening = false
+        var didToggleSpeaking = false
         controller.onOpenSettings = { didOpenSettings = true }
         controller.onToggleIsland = { didToggleIsland = true }
 #if DEBUG
         controller.onTogglePetListening = { didToggleListening = true }
+        controller.onTogglePetSpeaking = { didToggleSpeaking = true }
 #endif
 
         let menu = NSMenu()
@@ -29,11 +31,13 @@ final class StatusItemControllerTests: XCTestCase {
         send(menu.item(withTitle: "展开刘海"))
 #if DEBUG
         send(menu.item(withTitle: "测试派蒙聆听"))
+        send(menu.item(withTitle: "测试派蒙说话"))
 #endif
         XCTAssertTrue(didOpenSettings)
         XCTAssertTrue(didToggleIsland)
 #if DEBUG
         XCTAssertTrue(didToggleListening)
+        XCTAssertTrue(didToggleSpeaking)
 #endif
     }
 

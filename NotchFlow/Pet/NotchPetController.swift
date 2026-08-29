@@ -9,6 +9,7 @@ enum NotchPetStage: Equatable {
     case idle
     case reacting
     case listening
+    case speaking
     case returning
 }
 
@@ -39,8 +40,12 @@ final class NotchPetController: ObservableObject {
         stage == .listening
     }
 
+    var isSpeaking: Bool {
+        stage == .speaking
+    }
+
     var keepsVisibleWithoutPointer: Bool {
-        stage == .listening
+        stage == .listening || stage == .speaking
     }
 
     func wakeUp() {
@@ -86,6 +91,26 @@ final class NotchPetController: ObservableObject {
 
     func stopListening() {
         guard stage == .listening else { return }
+        playbackTask?.cancel()
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            stage = .idle
+            await playCalmIdle()
+        }
+    }
+
+    func startSpeaking() {
+        guard stage != .speaking, stage != .returning else { return }
+        playbackTask?.cancel()
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            stage = .speaking
+            await playLoop(.speaking)
+        }
+    }
+
+    func stopSpeaking() {
+        guard stage == .speaking else { return }
         playbackTask?.cancel()
         playbackTask = Task { @MainActor [weak self] in
             guard let self else { return }

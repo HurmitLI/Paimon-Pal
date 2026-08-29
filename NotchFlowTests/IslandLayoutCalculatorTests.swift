@@ -34,6 +34,21 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertFalse(pet.keepsVisibleWithoutPointer)
     }
 
+    @MainActor
+    func testPetCanEnterAndExitSpeakingState() async {
+        let pet = NotchPetController()
+
+        pet.startSpeaking()
+        await Task.yield()
+        XCTAssertEqual(pet.stage, .speaking)
+        XCTAssertTrue(pet.keepsVisibleWithoutPointer)
+
+        pet.stopSpeaking()
+        await Task.yield()
+        XCTAssertEqual(pet.stage, .idle)
+        XCTAssertFalse(pet.keepsVisibleWithoutPointer)
+    }
+
     func testExpandedPhysicalIslandStaysInsideCompactTopBand() {
         let metrics = IslandLayoutCalculator.metrics(for: .expanded, geometry: notchedScreen)
         XCTAssertEqual(metrics.size.width, notchedScreen.notchRect!.width + 152)
