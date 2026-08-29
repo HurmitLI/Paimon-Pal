@@ -58,7 +58,8 @@ final class NotchPetController: ObservableObject {
     }
 
     func returnToSleep() {
-        guard stage != .sleeping, stage != .returning else { return }
+        guard stage != .sleeping, stage != .returning,
+              !keepsVisibleWithoutPointer else { return }
         playbackTask?.cancel()
         playbackTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -81,7 +82,8 @@ final class NotchPetController: ObservableObject {
     }
 
     func startListening() {
-        guard stage != .listening, stage != .returning else { return }
+        guard stage != .listening, stage != .celebrating,
+              stage != .returning else { return }
         playbackTask?.cancel()
         playbackTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -101,7 +103,8 @@ final class NotchPetController: ObservableObject {
     }
 
     func startSpeaking() {
-        guard stage != .speaking, stage != .returning else { return }
+        guard stage != .speaking, stage != .celebrating,
+              stage != .returning else { return }
         playbackTask?.cancel()
         playbackTask = Task { @MainActor [weak self] in
             guard let self else { return }
