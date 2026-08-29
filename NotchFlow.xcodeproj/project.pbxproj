@@ -61,7 +61,7 @@
 		A20000000000000000000035 /* LocalPetModelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000039 /* LocalPetModelController.swift */; };
 		A20000000000000000000036 /* notchflow-model-probe in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003A /* notchflow-model-probe */; };
 		A20000000000000000000037 /* mlx.metallib in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003B /* mlx.metallib */; };
-		A20000000000000000000038 /* Qwen3-1.7B-4bit in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003C /* Qwen3-1.7B-4bit */; };
+		A20000000000000000000038 /* Qwen3-4B-Instruct-2507-4bit in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003C /* Qwen3-4B-Instruct-2507-4bit */; };
 		A20000000000000000000039 /* PetToolRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003D /* PetToolRouterTests.swift */; };
 		A2000000000000000000003A /* NotchFlow.icns in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003E /* NotchFlow.icns */; };
 		A2000000000000000000003B /* PetSpeechController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003F /* PetSpeechController.swift */; };
@@ -138,7 +138,7 @@
 		B20000000000000000000039 /* LocalPetModelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPetModelController.swift; sourceTree = "<group>"; };
 		B2000000000000000000003A /* notchflow-model-probe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "notchflow-model-probe"; sourceTree = "<group>"; };
 		B2000000000000000000003B /* mlx.metallib */ = {isa = PBXFileReference; lastKnownFileType = file; path = mlx.metallib; sourceTree = "<group>"; };
-		B2000000000000000000003C /* Qwen3-1.7B-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Qwen3-1.7B-4bit"; sourceTree = "<group>"; };
+		B2000000000000000000003C /* Qwen3-4B-Instruct-2507-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Qwen3-4B-Instruct-2507-4bit"; sourceTree = "<group>"; };
 		B2000000000000000000003D /* PetToolRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetToolRouterTests.swift; sourceTree = "<group>"; };
 		B2000000000000000000003E /* NotchFlow.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NotchFlow.icns; sourceTree = "<group>"; };
 		B2000000000000000000003F /* PetSpeechController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetSpeechController.swift; sourceTree = "<group>"; };
@@ -320,7 +320,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -340,7 +340,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;

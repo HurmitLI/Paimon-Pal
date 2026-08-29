@@ -3,7 +3,7 @@
 set -euo pipefail
 
 tool_dir="${0:A:h}"
-model_dir="${1:-${tool_dir:h:h}/PrivateModelAssets/Qwen3-1.7B-4bit}"
+model_dir="${1:-${tool_dir:h:h}/PrivateModelAssets/Qwen3-4B-Instruct-2507-4bit}"
 prompt="${2:-我今天有点累，你能陪陪我吗？}"
 
 cd "$tool_dir"

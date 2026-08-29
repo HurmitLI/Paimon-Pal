@@ -1076,7 +1076,7 @@ private struct LocalModelRuntime: Sendable {
         guard let resourceDirectory = bundle.resourceURL,
               let executable = bundle.url(forResource: "notchflow-model-probe", withExtension: nil),
               let modelDirectory = bundle.url(
-                forResource: "Qwen3-1.7B-4bit",
+                forResource: "Qwen3-4B-Instruct-2507-4bit",
                 withExtension: nil
               )
         else {

@@ -8,16 +8,17 @@ import Tokenizers
 @main
 struct LocalModelProbe {
     private static let instructions = """
-    你是住在 MacBook 刘海旁边的桌面伙伴，名字叫派蒙。你必须使用简体中文。
-    你是一名能认真回答问题、解释原因并提供办法的本地助手，不是只负责安慰和倾听的玩偶。解决用户问题是第一职责，陪伴感只是表达语气。绝不能以“我的职责是陪伴”为理由回避问题。
-    首要任务是准确理解并直接回答用户当前真正想问的内容，再自然地保持温暖、活泼的语气；不能用陪伴套话代替答案。第一句话就要进入答案，不要先寒暄。
-    要结合对话历史理解“这个”“那样”“怎么做”等指代和追问。用户纠正、质疑你的回答或行为时，先正面判断问题，再说明如何调整，不得转移话题。
-    简单问题可以只答一句；需要解释时通常回答两到四句，并尽量给出具体、可执行的信息。信息不足时明确说明，不要编造。
-    用户询问原因时先明确说出原因；用户要求具体办法时给出短步骤；用户批评回答时先承认或澄清具体问题，再给出调整后的答案。
-    不要把用户的经历说成自己的经历，不要说教，也不要为了活泼而机械反问。除非缺少关键信息，否则不要用问题结尾。
-    你没有身体，不能触碰、观察或代替用户做现实动作；不要描写拍肩、拥抱、递东西等虚构动作，也不要输出括号舞台动作。
-    “旅行者”只在语境自然时偶尔使用，不能每次都称呼。
-    不要输出思考过程、标签或角色名称。
+    你是住在 MacBook 刘海旁边的本地桌面助手“派蒙”，只用简体中文。
+
+    回答优先级从高到低：
+    1. 直接、准确地解决用户当前问题；严格满足数字、格式、长度、步骤数等明确约束。“X分钟内”表示不得超时；只有用户明确要求合计等于某时长时，步骤时长才必须相加等于该时长。
+    2. 结合对话历史解析“这个、那个、第二个、怎么做”等指代，不能丢失上下文。
+    3. 语气简洁、温暖、自然，角色感不能代替答案。
+
+    回答前先在内部核对：用户真正问什么、指代什么、有哪些硬性约束；不要输出核对或思考过程。
+    原因问题先说原因；具体办法给短步骤；用户指出错误时先承认具体错误，再给修正答案。简单问题一句即可，复杂问题通常两到四句或短步骤。信息不足就说明，不编造，也不机械反问。
+    你没有身体，也看不到用户周围的现实环境，不能触碰、观察或代替用户完成现实动作。不得声称自己能拿水杯、确认物品位置、拥抱、拍肩或做其他实体动作，也不要输出括号舞台动作；只能说明能力边界并给出真实可行的替代办法。
+    “旅行者”只能偶尔自然使用，不能每次称呼。不要输出角色名称、标签或表情符号。
     """
 
     static func main() async {
@@ -29,6 +30,7 @@ struct LocalModelProbe {
 
             let modelDirectory = URL(filePath: arguments[1], directoryHint: .isDirectory)
             let request = try ProbeRequest.parse(arguments: arguments)
+            let supportsThinking = !modelDirectory.lastPathComponent.contains("Instruct-2507")
             guard FileManager.default.fileExists(atPath: modelDirectory.path) else {
                 throw ProbeError.missingModelDirectory(modelDirectory.path)
             }
@@ -42,17 +44,29 @@ struct LocalModelProbe {
             let loadDuration = loadStart.duration(to: clock.now)
 
             let generationStart = clock.now
-            var response = try await generate(model: model, request: request)
+            var effectiveRequest = request
+            if !supportsThinking {
+                effectiveRequest.enableThinking = false
+            }
+            var response = try await generate(
+                model: model,
+                request: effectiveRequest,
+                supportsThinking: supportsThinking
+            )
             var cleanedResponse = ResponseSanitizer.clean(response)
             var usedFallback = false
 
             // 小模型偶尔会把整个额度都花在思考过程上。此时自动用快速模式
             // 重试一次，确保用户得到完整答案而不是空白回复。
-            if request.enableThinking && cleanedResponse.isEmpty {
+            if effectiveRequest.enableThinking && cleanedResponse.isEmpty {
                 usedFallback = true
-                var fallback = request
+                var fallback = effectiveRequest
                 fallback.enableThinking = false
-                response = try await generate(model: model, request: fallback)
+                response = try await generate(
+                    model: model,
+                    request: fallback,
+                    supportsThinking: supportsThinking
+                )
                 cleanedResponse = ResponseSanitizer.clean(response)
             }
 
@@ -61,7 +75,10 @@ struct LocalModelProbe {
 
             print("MODEL_LOAD_SECONDS=\(loadDuration.secondsText)")
             print("GENERATION_SECONDS=\(generationDuration.secondsText)")
-            print("REASONING_MODE=\(request.enableThinking ? "thinking" : "fast")")
+            let reasoningMode = supportsThinking
+                ? (effectiveRequest.enableThinking ? "thinking" : "fast")
+                : "instruct"
+            print("REASONING_MODE=\(reasoningMode)")
             print("REASONING_FALLBACK=\(usedFallback ? "yes" : "no")")
             print("RESPONSE_BEGIN")
             print(cleanedResponse)
@@ -74,25 +91,38 @@ struct LocalModelProbe {
 
     private static func generate(
         model: ModelContainer,
-        request: ProbeRequest
+        request: ProbeRequest,
+        supportsThinking: Bool
     ) async throws -> String {
-        let parameters = request.enableThinking
-            ? GenerateParameters(
-                maxTokens: 512,
-                temperature: 0.6,
-                topP: 0.95,
-                topK: 20,
-                repetitionPenalty: 1.05,
-                seed: nil
-            )
-            : GenerateParameters(
-                maxTokens: 192,
-                temperature: 0.5,
+        let parameters: GenerateParameters
+        if !supportsThinking {
+            parameters = GenerateParameters(
+                maxTokens: 256,
+                temperature: 0.7,
                 topP: 0.8,
                 topK: 20,
                 repetitionPenalty: 1.05,
                 seed: nil
             )
+        } else if request.enableThinking {
+            parameters = GenerateParameters(
+                maxTokens: 384,
+                temperature: 0.5,
+                topP: 0.95,
+                topK: 20,
+                repetitionPenalty: 1.05,
+                seed: nil
+            )
+        } else {
+            parameters = GenerateParameters(
+                maxTokens: 256,
+                temperature: 0.3,
+                topP: 0.8,
+                topK: 20,
+                repetitionPenalty: 1.05,
+                seed: nil
+            )
+        }
         let history = request.history.compactMap { message -> Chat.Message? in
             switch message.role {
             case "user": .user(message.content)
@@ -106,8 +136,14 @@ struct LocalModelProbe {
             history: history,
             generateParameters: parameters
         )
-        let mode = request.enableThinking ? "/think" : "/no_think"
-        return try await session.respond(to: "\(request.prompt) \(mode)")
+        let prompt: String
+        if supportsThinking {
+            let mode = request.enableThinking ? "/think" : "/no_think"
+            prompt = "\(request.prompt) \(mode)"
+        } else {
+            prompt = request.prompt
+        }
+        return try await session.respond(to: prompt)
     }
 }
 

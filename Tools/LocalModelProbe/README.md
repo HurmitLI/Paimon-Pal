@@ -5,10 +5,9 @@
 ## 当前选型
 
 - 推理框架：MLX Swift LM 3.31.4
-- 候选模型：`mlx-community/Qwen3-1.7B-4bit`
-- 固定版本：`3b1b1768f8f8cf8351c712464f906e86c2b8269e`
-- 权重 SHA-256：`0e86d9677e519323849eac1bc272caae88567a481ff188c431f70be543d9995f`
-- 本地模型目录：`PrivateModelAssets/Qwen3-1.7B-4bit`
+- 正式模型：`mlx-community/Qwen3-4B-Instruct-2507-4bit`
+- 权重 SHA-256：`2a73c6c248601ab904e035548abd8e6abb65ea27dcb5f342fb0a8910eb44173f`
+- 本地模型目录：`PrivateModelAssets/Qwen3-4B-Instruct-2507-4bit`
 
 模型权重不提交 Git。正式打包阶段将模型目录、推理程序和 `mlx.metallib` 一并放入 App，用户无需安装 Ollama、Python 或其他运行环境。
 
@@ -24,6 +23,6 @@
 
 ```zsh
 ./Tools/LocalModelProbe/build_and_run.sh \
-  ./PrivateModelAssets/Qwen3-1.7B-4bit \
+  ./PrivateModelAssets/Qwen3-4B-Instruct-2507-4bit \
   "我刚完成了一件很难的事情！"
 ```
