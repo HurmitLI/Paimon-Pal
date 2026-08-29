@@ -34,7 +34,7 @@ struct NotchPetView: View {
         case .emerging:
             18
         case .idle:
-            8
+            18
         case .reacting:
             22
         case .listening:

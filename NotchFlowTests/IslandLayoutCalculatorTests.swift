@@ -19,6 +19,28 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertEqual(pet.stage, .sleeping)
     }
 
+    func testIdleSpriteSheetProvidesSixteenFrames() throws {
+        let frames = try NotchPetAssetLoader().frames(for: .idle)
+
+        XCTAssertEqual(frames.count, 16)
+        XCTAssertTrue(frames.allSatisfy { $0.size.width > 0 && $0.size.height > 0 })
+    }
+
+    func testSpriteGridKeepsLegacyEightFrameMotions() {
+        XCTAssertEqual(
+            NotchPetFrameSlicer.cropRects(imageWidth: 1_536, imageHeight: 1_024).count,
+            8
+        )
+        XCTAssertEqual(
+            NotchPetFrameSlicer.cropRects(
+                imageWidth: 1_254,
+                imageHeight: 1_254,
+                rows: 4
+            ).count,
+            16
+        )
+    }
+
     @MainActor
     func testPetCanEnterAndExitListeningState() async {
         let pet = NotchPetController()

@@ -15,7 +15,7 @@ enum NotchPetMotion: String, CaseIterable {
         switch self {
         case .sleepToPeek: "den-sleep-to-peek-transparent-v4"
         case .peekToEmerge: "peek-to-emerge-transparent-v1"
-        case .idle: "notch-idle-loop-transparent-v1"
+        case .idle: "notch-idle-loop-transparent-v4"
         case .clickReaction: "click-reaction-transparent-v1"
         case .listening: "listening-loop-transparent-v1"
         case .speaking: "speaking-loop-transparent-v1"
@@ -28,8 +28,13 @@ enum NotchPetMotion: String, CaseIterable {
         switch self {
         case .sleepToPeek, .successCelebration, .returnToSleep: 8
         case .peekToEmerge, .clickReaction: 10
-        case .idle, .listening, .speaking: 6
+        case .idle: 10
+        case .listening, .speaking: 6
         }
+    }
+
+    var gridRows: Int {
+        self == .idle ? 4 : 2
     }
 }
 
@@ -49,9 +54,8 @@ enum NotchPetAssetError: LocalizedError {
 
 enum NotchPetFrameSlicer {
     static let columns = 4
-    static let rows = 2
 
-    static func cropRects(imageWidth: Int, imageHeight: Int) -> [CGRect] {
+    static func cropRects(imageWidth: Int, imageHeight: Int, rows: Int = 2) -> [CGRect] {
         (0..<(columns * rows)).map { index in
             let column = index % columns
             let row = index / columns
@@ -228,7 +232,8 @@ struct NotchPetAssetLoader {
 
         let cleanedFrames = try NotchPetFrameSlicer.cropRects(
             imageWidth: image.width,
-            imageHeight: image.height
+            imageHeight: image.height,
+            rows: motion.gridRows
         ).enumerated().map { index, rect in
             guard let frame = image.cropping(to: rect) else {
                 throw NotchPetAssetError.cropFailed(index)

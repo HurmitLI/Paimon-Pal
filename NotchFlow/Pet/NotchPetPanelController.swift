@@ -216,7 +216,13 @@ final class NotchPetPanelController {
             return hidePanel(reason: "fullscreen policy")
         }
 
-        panel.setFrame(panelFrame(on: geometry), display: true)
+        let targetFrame = panelFrame(on: geometry)
+        // Stage changes do not move the panel. Re-applying an identical frame with
+        // display=true briefly clears a transparent NSPanel before SwiftUI redraws,
+        // which appears as a white flash over a light desktop background.
+        if panel.frame != targetFrame {
+            panel.setFrame(targetFrame, display: false)
+        }
         if !panel.isVisible {
             panel.orderFrontRegardless()
         }

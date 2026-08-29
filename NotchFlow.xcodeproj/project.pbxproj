@@ -52,7 +52,7 @@
 		A2000000000000000000002C /* NotchPetPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030 /* NotchPetPanelController.swift */; };
 		A2000000000000000000002D /* den-sleep-to-peek-transparent-v4.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000031 /* den-sleep-to-peek-transparent-v4.png */; };
 		A2000000000000000000002E /* peek-to-emerge-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000032 /* peek-to-emerge-transparent-v1.png */; };
-		A2000000000000000000002F /* notch-idle-loop-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000033 /* notch-idle-loop-transparent-v1.png */; };
+		A2000000000000000000002F /* notch-idle-loop-transparent-v4.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000033 /* notch-idle-loop-transparent-v4.png */; };
 		A20000000000000000000030 /* return-to-sleep-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000034 /* return-to-sleep-transparent-v1.png */; };
 		A20000000000000000000031 /* click-reaction-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000035 /* click-reaction-transparent-v1.png */; };
 		A20000000000000000000032 /* listening-loop-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000036 /* listening-loop-transparent-v1.png */; };
@@ -126,7 +126,7 @@
 		B20000000000000000000030 /* NotchPetPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPetPanelController.swift; sourceTree = "<group>"; };
 		B20000000000000000000031 /* den-sleep-to-peek-transparent-v4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "den-sleep-to-peek-transparent-v4.png"; sourceTree = "<group>"; };
 		B20000000000000000000032 /* peek-to-emerge-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "peek-to-emerge-transparent-v1.png"; sourceTree = "<group>"; };
-		B20000000000000000000033 /* notch-idle-loop-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "notch-idle-loop-transparent-v1.png"; sourceTree = "<group>"; };
+		B20000000000000000000033 /* notch-idle-loop-transparent-v4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "notch-idle-loop-transparent-v4.png"; sourceTree = "<group>"; };
 		B20000000000000000000034 /* return-to-sleep-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "return-to-sleep-transparent-v1.png"; sourceTree = "<group>"; };
 		B20000000000000000000035 /* click-reaction-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "click-reaction-transparent-v1.png"; sourceTree = "<group>"; };
 		B20000000000000000000036 /* listening-loop-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "listening-loop-transparent-v1.png"; sourceTree = "<group>"; };

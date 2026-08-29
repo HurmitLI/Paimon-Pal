@@ -149,6 +149,15 @@ final class NotchPetController: ObservableObject {
     }
 
     private func runWakeSequence() async {
+        // Decode and clean the larger 16-frame idle sheet before the pet becomes
+        // visible. Doing this at the transition boundary can briefly starve the
+        // transparent panel's redraw and look like a white flash.
+        do {
+            _ = try frames(for: .idle)
+        } catch {
+            lastError = error.localizedDescription
+            return
+        }
         stage = .waking
         guard await playOnce(.sleepToPeek) else { return }
         stage = .emerging
@@ -182,9 +191,16 @@ final class NotchPetController: ObservableObject {
             lastError = nil
             currentImage = restingFrame
             while !Task.isCancelled {
-                // 当前生成的“眨眼”帧会同时改变身体姿势。
-                // 在拆出独立眼部图层前，待机保持完全静止，避免角色左右晃动。
-                try await Task.sleep(for: .seconds(60))
+                // 先保持安静，再播放一次短促的呼吸和眨眼；避免鼠标停在刘海时
+                // 角色持续循环、显得焦躁，同时保留自然的生命感。
+                try await Task.sleep(for: .seconds(2))
+                for image in images.dropFirst() {
+                    guard !Task.isCancelled else { return }
+                    currentImage = image
+                    try await Task.sleep(nanoseconds: frameInterval(for: .idle))
+                }
+                currentImage = restingFrame
+                try await Task.sleep(for: .seconds(5))
             }
         } catch is CancellationError {
             return
