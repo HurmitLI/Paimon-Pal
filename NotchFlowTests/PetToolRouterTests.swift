@@ -23,6 +23,27 @@ final class PetToolRouterTests: XCTestCase {
         XCTAssertNil(PetToolRouter.command(from: "倒计时 99999 小时"))
     }
 
+    func testParsesTimerLifecycleCommands() {
+        XCTAssertEqual(PetToolRouter.command(from: "暂停计时"), .timer(.pause))
+        XCTAssertEqual(PetToolRouter.command(from: "继续倒计时"), .timer(.resume))
+        XCTAssertEqual(PetToolRouter.command(from: "取消这次计时"), .timer(.cancel))
+        XCTAssertEqual(PetToolRouter.command(from: "倒计时还剩多久"), .timer(.status))
+    }
+
+    func testParsesAppleMusicControlCommands() {
+        XCTAssertEqual(PetToolRouter.command(from: "播放音乐"), .music(.play))
+        XCTAssertEqual(PetToolRouter.command(from: "暂停音乐"), .music(.pause))
+        XCTAssertEqual(PetToolRouter.command(from: "下一首"), .music(.next))
+        XCTAssertEqual(PetToolRouter.command(from: "切到上一首"), .music(.previous))
+        XCTAssertEqual(PetToolRouter.command(from: "现在播放的什么歌"), .music(.status))
+    }
+
+    func testDoesNotTreatOrdinaryConversationAsMediaControl() {
+        XCTAssertNil(PetToolRouter.command(from: "我喜欢听音乐"))
+        XCTAssertNil(PetToolRouter.command(from: "我刚才暂停了一下工作"))
+        XCTAssertNil(PetToolRouter.command(from: "下一首诗写得真好"))
+    }
+
     func testParsesExistingFeatureWindows() {
         XCTAssertEqual(PetToolRouter.command(from: "帮我打开计时器"), .open(.timer))
         XCTAssertEqual(PetToolRouter.command(from: "打开音乐窗口"), .open(.music))
@@ -32,7 +53,6 @@ final class PetToolRouterTests: XCTestCase {
     }
 
     func testDoesNotOpenAmbiguousTargets() {
-        XCTAssertNil(PetToolRouter.command(from: "我喜欢听音乐"))
         XCTAssertNil(PetToolRouter.command(from: "帮我打开一个文件"))
         XCTAssertNil(PetToolRouter.command(from: "查看今天的状态"))
     }
@@ -130,4 +150,201 @@ final class PetToolRouterTests: XCTestCase {
             )
         )
     }
+}
+
+@MainActor
+final class PetToolExecutorTests: XCTestCase {
+    func testTimerExecutorRunsPauseResumeStatusAndCancelLifecycle() {
+        let timer = TimerController(
+            coordinator: ActivityCoordinator(),
+            store: PetToolTimerStoreStub()
+        )
+        timer.begin(seconds: 120)
+
+        let pauseReply = PetTimerToolExecutor.execute(.pause, timer: timer)
+        XCTAssertEqual(timer.state.phase, .paused)
+        XCTAssertTrue(pauseReply.contains("已暂停"))
+
+        let statusReply = PetTimerToolExecutor.execute(.status, timer: timer)
+        XCTAssertTrue(statusReply.contains("暂停状态"))
+        XCTAssertTrue(statusReply.contains("还剩"))
+
+        let resumeReply = PetTimerToolExecutor.execute(.resume, timer: timer)
+        XCTAssertEqual(timer.state.phase, .running)
+        XCTAssertTrue(resumeReply.contains("继续计时"))
+
+        let cancelReply = PetTimerToolExecutor.execute(.cancel, timer: timer)
+        XCTAssertEqual(timer.state.phase, .idle)
+        XCTAssertEqual(cancelReply, "好哒，这次计时已经取消。")
+        XCTAssertEqual(
+            PetTimerToolExecutor.execute(.cancel, timer: timer),
+            "现在没有正在运行的计时。"
+        )
+    }
+
+    func testMusicExecutorDispatchesEveryExplicitCommandAndReportsStatus() {
+        let statusProvider = PetToolMusicProviderStub(
+            snapshot: makeMusicSnapshot(state: .playing)
+        )
+        let statusMusic = MusicController(
+            coordinator: ActivityCoordinator(),
+            provider: statusProvider
+        )
+
+        let status = PetMusicToolExecutor.execute(
+            .status,
+            music: statusMusic,
+            isEnabled: true,
+            onOpenSettings: {}
+        )
+        XCTAssertTrue(status.contains("《Song》"))
+        XCTAssertTrue(status.contains("Artist"))
+
+        let cases: [(PetMusicAction, MusicPlaybackState, MusicCommand)] = [
+            (.play, .paused, .play),
+            (.pause, .playing, .pause),
+            (.next, .playing, .next),
+            (.previous, .playing, .previous)
+        ]
+        for (action, state, command) in cases {
+            let provider = PetToolMusicProviderStub(snapshot: makeMusicSnapshot(state: state))
+            let music = MusicController(coordinator: ActivityCoordinator(), provider: provider)
+
+            let reply = PetMusicToolExecutor.execute(
+                action,
+                music: music,
+                isEnabled: true,
+                onOpenSettings: {}
+            )
+
+            XCTAssertTrue(reply.contains("发送"))
+            XCTAssertEqual(provider.commands, [command])
+        }
+    }
+
+    func testMusicExecutorDoesNotPretendSuccessWhenUnavailableOrDenied() {
+        let stoppedProvider = PetToolMusicProviderStub(snapshot: .unavailable)
+        let stoppedMusic = MusicController(
+            coordinator: ActivityCoordinator(),
+            provider: stoppedProvider
+        )
+        let unavailableReply = PetMusicToolExecutor.execute(
+            .next,
+            music: stoppedMusic,
+            isEnabled: true,
+            onOpenSettings: {}
+        )
+        XCTAssertTrue(unavailableReply.contains("没有运行"))
+        XCTAssertTrue(stoppedProvider.commands.isEmpty)
+
+        let deniedProvider = PetToolMusicProviderStub(
+            snapshot: makeMusicSnapshot(state: .playing),
+            sendResult: .failure(.permissionDenied)
+        )
+        let deniedMusic = MusicController(
+            coordinator: ActivityCoordinator(),
+            provider: deniedProvider
+        )
+        let deniedReply = PetMusicToolExecutor.execute(
+            .next,
+            music: deniedMusic,
+            isEnabled: true,
+            onOpenSettings: {}
+        )
+        XCTAssertTrue(deniedReply.contains("没有执行成功"))
+        XCTAssertTrue(deniedReply.contains("权限"))
+    }
+
+    func testMusicExecutorDoesNotReportStaleSongWhenRefreshFails() {
+        let provider = PetToolMusicProviderStub(snapshot: makeMusicSnapshot(state: .playing))
+        let music = MusicController(coordinator: ActivityCoordinator(), provider: provider)
+
+        XCTAssertTrue(PetMusicToolExecutor.execute(
+            .status,
+            music: music,
+            isEnabled: true,
+            onOpenSettings: {}
+        ).contains("《Song》"))
+
+        provider.readResult = .failure(.permissionDenied)
+        let reply = PetMusicToolExecutor.execute(
+            .status,
+            music: music,
+            isEnabled: true,
+            onOpenSettings: {}
+        )
+
+        XCTAssertTrue(reply.contains("无法读取 Apple Music"))
+        XCTAssertTrue(reply.contains("权限"))
+        XCTAssertFalse(reply.contains("《Song》"))
+    }
+
+    func testMusicExecutorOpensSettingsWhenFeatureIsDisabled() {
+        let provider = PetToolMusicProviderStub(snapshot: makeMusicSnapshot(state: .playing))
+        let music = MusicController(coordinator: ActivityCoordinator(), provider: provider)
+        var didOpenSettings = false
+
+        let reply = PetMusicToolExecutor.execute(
+            .pause,
+            music: music,
+            isEnabled: false,
+            onOpenSettings: { didOpenSettings = true }
+        )
+
+        XCTAssertTrue(didOpenSettings)
+        XCTAssertTrue(reply.contains("音乐功能目前是关闭的"))
+        XCTAssertTrue(provider.commands.isEmpty)
+    }
+
+    private func makeMusicSnapshot(state: MusicPlaybackState) -> MusicSnapshot {
+        MusicSnapshot(
+            installed: true,
+            running: true,
+            playbackState: state,
+            trackID: "ABC",
+            title: "Song",
+            artist: "Artist",
+            album: "Album",
+            duration: 180,
+            position: 30,
+            artworkData: nil,
+            canSeek: true
+        )
+    }
+}
+
+private final class PetToolTimerStoreStub: TimerStateStoring {
+    var state: TimerRuntimeState?
+
+    func load() -> TimerRuntimeState? { state }
+    func save(_ state: TimerRuntimeState) { self.state = state }
+    func clear() { state = nil }
+}
+
+@MainActor
+private final class PetToolMusicProviderStub: MusicPlaybackProviding {
+    var snapshot: MusicSnapshot
+    var sendResult: Result<Void, MusicServiceError>
+    var readResult: Result<MusicSnapshot, MusicServiceError>?
+    private(set) var commands: [MusicCommand] = []
+
+    init(
+        snapshot: MusicSnapshot,
+        sendResult: Result<Void, MusicServiceError> = .success(())
+    ) {
+        self.snapshot = snapshot
+        self.sendResult = sendResult
+    }
+
+    func readSnapshot() -> Result<MusicSnapshot, MusicServiceError> {
+        readResult ?? .success(snapshot)
+    }
+
+    func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> {
+        commands.append(command)
+        return sendResult
+    }
+
+    func seek(to position: TimeInterval) -> Result<Void, MusicServiceError> { .success(()) }
+    func openSource() {}
 }

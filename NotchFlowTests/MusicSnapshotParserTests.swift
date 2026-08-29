@@ -93,6 +93,47 @@ final class MusicControllerTests: XCTestCase {
 
         XCTAssertEqual(coordinator.state.presentation, .silent)
         XCTAssertTrue(controller.message.contains("权限"))
+        XCTAssertEqual(controller.lastError, .permissionDenied)
+    }
+
+    func testSuccessfulRefreshClearsPreviousReadError() {
+        let coordinator = ActivityCoordinator()
+        let provider = MusicProviderStub(result: .failure(.permissionDenied))
+        let controller = MusicController(coordinator: coordinator, provider: provider)
+
+        controller.refresh()
+        XCTAssertEqual(controller.lastError, .permissionDenied)
+
+        provider.result = .success(makeSnapshot(state: .playing))
+        controller.refresh()
+
+        XCTAssertNil(controller.lastError)
+        XCTAssertEqual(controller.snapshot.title, "Song")
+    }
+
+    func testMusicCommandReturnsProviderResultAndBlocksOverlap() {
+        let coordinator = ActivityCoordinator()
+        let provider = MusicProviderStub(result: .success(makeSnapshot(state: .paused)))
+        let controller = MusicController(coordinator: coordinator, provider: provider)
+
+        XCTAssertNoThrow(try controller.send(.play).get())
+        XCTAssertEqual(provider.commands, [.play])
+
+        XCTAssertThrowsError(try controller.send(.next).get())
+        XCTAssertEqual(provider.commands, [.play])
+    }
+
+    func testMusicCommandSurfacesProviderFailure() {
+        let coordinator = ActivityCoordinator()
+        let provider = MusicProviderStub(
+            result: .success(makeSnapshot(state: .playing)),
+            sendResult: .failure(.permissionDenied)
+        )
+        let controller = MusicController(coordinator: coordinator, provider: provider)
+
+        XCTAssertThrowsError(try controller.send(.pause).get())
+        XCTAssertEqual(provider.commands, [.pause])
+        XCTAssertTrue(controller.message.contains("权限"))
     }
 
     private func makeSnapshot(state: MusicPlaybackState) -> MusicSnapshot {
@@ -115,13 +156,22 @@ final class MusicControllerTests: XCTestCase {
 @MainActor
 private final class MusicProviderStub: MusicPlaybackProviding {
     var result: Result<MusicSnapshot, MusicServiceError>
+    var sendResult: Result<Void, MusicServiceError>
+    private(set) var commands: [MusicCommand] = []
 
-    init(result: Result<MusicSnapshot, MusicServiceError>) {
+    init(
+        result: Result<MusicSnapshot, MusicServiceError>,
+        sendResult: Result<Void, MusicServiceError> = .success(())
+    ) {
         self.result = result
+        self.sendResult = sendResult
     }
 
     func readSnapshot() -> Result<MusicSnapshot, MusicServiceError> { result }
-    func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> { .success(()) }
+    func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> {
+        commands.append(command)
+        return sendResult
+    }
     func seek(to position: TimeInterval) -> Result<Void, MusicServiceError> { .success(()) }
     func openSource() {}
 }

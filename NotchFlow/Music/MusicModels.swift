@@ -53,7 +53,9 @@ struct MusicSnapshot: Equatable {
     }
 }
 
-enum MusicCommand {
+enum MusicCommand: Equatable {
+    case play
+    case pause
     case playPause
     case next
     case previous

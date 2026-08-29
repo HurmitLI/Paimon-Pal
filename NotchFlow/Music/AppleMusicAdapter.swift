@@ -64,6 +64,8 @@ final class AppleMusicAdapter: MusicPlaybackProviding {
     func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> {
         let action: String
         switch command {
+        case .play: action = "play"
+        case .pause: action = "pause"
         case .playPause: action = "playpause"
         case .next: action = "next track"
         case .previous: action = "previous track"

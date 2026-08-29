@@ -7,6 +7,7 @@ final class MusicController: ObservableObject {
     @Published private(set) var snapshot: MusicSnapshot = .unavailable
     @Published private(set) var message = "正在检查 Apple Music…"
     @Published private(set) var isPerformingCommand = false
+    @Published private(set) var lastError: MusicServiceError?
 
     private let provider: MusicPlaybackProviding
     private let coordinator: ActivityCoordinator
@@ -50,20 +51,27 @@ final class MusicController: ObservableObject {
     func refresh() {
         switch provider.readSnapshot() {
         case .success(let newSnapshot):
+            lastError = nil
             snapshot = newSnapshot
             message = statusMessage(for: newSnapshot)
             synchronizeActivity(with: newSnapshot)
         case .failure(let error):
+            lastError = error
             message = error.localizedDescription
             coordinator.removeActivity(id: "music.appleMusic")
         }
     }
 
-    func send(_ command: MusicCommand) {
-        guard !isPerformingCommand else { return }
+    @discardableResult
+    func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> {
+        guard !isPerformingCommand else {
+            return .failure(.commandFailed("Apple Music 正在处理上一条指令，请稍后再试。"))
+        }
         isPerformingCommand = true
-        switch provider.send(command) {
+        let result = provider.send(command)
+        switch result {
         case .success:
+            lastError = nil
             message = "指令已发送，正在等待 Apple Music 更新…"
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(800))
@@ -72,16 +80,20 @@ final class MusicController: ObservableObject {
             }
         case .failure(let error):
             isPerformingCommand = false
+            lastError = error
             message = error.localizedDescription
         }
+        return result
     }
 
     func seek(to position: TimeInterval) {
         switch provider.seek(to: position) {
         case .success:
+            lastError = nil
             message = "播放进度已更新。"
             refresh()
         case .failure(let error):
+            lastError = error
             message = error.localizedDescription
         }
     }

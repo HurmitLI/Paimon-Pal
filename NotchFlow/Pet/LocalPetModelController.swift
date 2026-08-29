@@ -22,6 +22,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
 
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
+    private let music: MusicController
     private let preferences: AppPreferences
     private let speech: PetSpeechController
     private let onOpenUtilityWindow: (UtilitySection) -> Void
@@ -34,6 +35,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     init(
         petPanel: NotchPetPanelController,
         timer: TimerController,
+        music: MusicController,
         preferences: AppPreferences,
         speechController: PetSpeechController? = nil,
         onOpenUtilityWindow: @escaping (UtilitySection) -> Void,
@@ -41,6 +43,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     ) {
         self.petPanel = petPanel
         self.timer = timer
+        self.music = music
         self.preferences = preferences
         speech = speechController ?? PetSpeechController(preferences: preferences)
         lastTimerPhase = timer.state.phase
@@ -263,6 +266,15 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         case .startTimer(let seconds):
             timer.begin(seconds: seconds)
             return "好哒，已经开始计时 \(TimerTextFormatter.duration(seconds: seconds))。"
+        case .timer(let action):
+            return PetTimerToolExecutor.execute(action, timer: timer)
+        case .music(let action):
+            return PetMusicToolExecutor.execute(
+                action,
+                music: music,
+                isEnabled: preferences.musicEnabled,
+                onOpenSettings: onOpenSettings
+            )
         case .open(let destination):
             return open(destination)
         }
@@ -732,7 +744,141 @@ private struct PetConversationView: View {
 
 enum PetToolCommand: Equatable {
     case startTimer(seconds: Int)
+    case timer(PetTimerAction)
+    case music(PetMusicAction)
     case open(PetToolDestination)
+}
+
+enum PetTimerAction: Equatable {
+    case pause
+    case resume
+    case cancel
+    case status
+}
+
+enum PetMusicAction: Equatable {
+    case play
+    case pause
+    case next
+    case previous
+    case status
+}
+
+@MainActor
+enum PetTimerToolExecutor {
+    static func execute(_ action: PetTimerAction, timer: TimerController) -> String {
+        switch action {
+        case .pause:
+            guard timer.state.phase == .running else {
+                return stateReply(timer: timer, requestedAction: "暂停")
+            }
+            timer.pause()
+            return "好哒，计时已暂停，还剩 \(TimerTextFormatter.duration(seconds: timer.remainingSeconds))。"
+        case .resume:
+            guard timer.state.phase == .paused else {
+                return stateReply(timer: timer, requestedAction: "继续")
+            }
+            timer.resume()
+            return "好哒，继续计时，还剩 \(TimerTextFormatter.duration(seconds: timer.remainingSeconds))。"
+        case .cancel:
+            guard timer.state.phase != .idle else {
+                return "现在没有正在运行的计时。"
+            }
+            timer.cancel()
+            return "好哒，这次计时已经取消。"
+        case .status:
+            return stateReply(timer: timer, requestedAction: nil)
+        }
+    }
+
+    private static func stateReply(
+        timer: TimerController,
+        requestedAction: String?
+    ) -> String {
+        switch timer.state.phase {
+        case .idle:
+            return "现在没有正在运行的计时。"
+        case .running:
+            let prefix = requestedAction == "暂停" ? "计时还在运行，" : "计时正在进行，"
+            return "\(prefix)还剩 \(TimerTextFormatter.duration(seconds: timer.remainingSeconds))。"
+        case .paused:
+            let prefix = requestedAction == "继续" ? "计时已经暂停，" : "计时处于暂停状态，"
+            return "\(prefix)还剩 \(TimerTextFormatter.duration(seconds: timer.remainingSeconds))。"
+        case .ringing:
+            return "这次计时已经结束，正在等待你确认。"
+        }
+    }
+}
+
+@MainActor
+enum PetMusicToolExecutor {
+    static func execute(
+        _ action: PetMusicAction,
+        music: MusicController,
+        isEnabled: Bool,
+        onOpenSettings: () -> Void
+    ) -> String {
+        guard isEnabled else {
+            onOpenSettings()
+            return "音乐功能目前是关闭的，我已经打开设置，你可以先把它开启。"
+        }
+
+        music.refresh()
+        if let error = music.lastError {
+            return "无法读取 Apple Music：\(error.localizedDescription)"
+        }
+        if action == .status {
+            return stateReply(snapshot: music.snapshot)
+        }
+        if action != .play, !music.snapshot.running {
+            return "Apple Music 还没有运行，我没有执行这条播放指令。"
+        }
+
+        let command: MusicCommand
+        let successReply: String
+        switch action {
+        case .play:
+            if music.snapshot.playbackState == .playing {
+                return stateReply(snapshot: music.snapshot)
+            }
+            command = .play
+            successReply = "好哒，已经向 Apple Music 发送播放指令。"
+        case .pause:
+            if music.snapshot.playbackState == .paused {
+                return "Apple Music 已经暂停了。"
+            }
+            command = .pause
+            successReply = "好哒，已经向 Apple Music 发送暂停指令。"
+        case .next:
+            command = .next
+            successReply = "好哒，已经向 Apple Music 发送切换下一首指令。"
+        case .previous:
+            command = .previous
+            successReply = "好哒，已经向 Apple Music 发送切换上一首指令。"
+        case .status:
+            return stateReply(snapshot: music.snapshot)
+        }
+
+        switch music.send(command) {
+        case .success:
+            return successReply
+        case .failure(let error):
+            return "没有执行成功：\(error.localizedDescription)"
+        }
+    }
+
+    private static func stateReply(snapshot: MusicSnapshot) -> String {
+        guard snapshot.installed else { return "这台 Mac 没有找到 Apple Music。" }
+        guard snapshot.running else { return "Apple Music 目前没有运行。" }
+        guard !snapshot.title.isEmpty else {
+            return snapshot.playbackState == .paused
+                ? "Apple Music 已暂停，目前没有可显示的歌曲信息。"
+                : "Apple Music 当前没有播放歌曲。"
+        }
+        let stateText = snapshot.playbackState == .playing ? "正在播放" : "目前暂停在"
+        let artistText = snapshot.artist.isEmpty ? "" : "，歌手是 \(snapshot.artist)"
+        return "Apple Music \(stateText)《\(snapshot.title)》\(artistText)。"
+    }
 }
 
 enum PetToolDestination: Equatable {
@@ -752,6 +898,13 @@ enum PetToolRouter {
             return timer
         }
 
+        if let timerAction = timerAction(from: text) {
+            return .timer(timerAction)
+        }
+        if let musicAction = musicAction(from: text) {
+            return .music(musicAction)
+        }
+
         let openKeywords = ["打开", "查看", "看看", "带我去"]
         guard openKeywords.contains(where: text.contains) else { return nil }
         if text.contains("设置") { return .open(.settings) }
@@ -759,6 +912,42 @@ enum PetToolRouter {
         if text.contains("系统状态") { return .open(.system) }
         if text.contains("计时器") { return .open(.timer) }
         if text.contains("音乐") { return .open(.music) }
+        return nil
+    }
+
+    private static func timerAction(from text: String) -> PetTimerAction? {
+        guard text.contains("计时") || text.contains("倒计时") else { return nil }
+        if ["取消", "停止", "结束", "关掉"].contains(where: text.contains) {
+            return .cancel
+        }
+        if ["继续", "恢复"].contains(where: text.contains) {
+            return .resume
+        }
+        if ["暂停", "停一下"].contains(where: text.contains) {
+            return .pause
+        }
+        if ["还剩", "多久", "状态", "进度"].contains(where: text.contains) {
+            return .status
+        }
+        return nil
+    }
+
+    private static func musicAction(from text: String) -> PetMusicAction? {
+        if text == "下一首" || text.contains("下一首歌") || text.contains("切到下一首") || text.contains("换一首歌") {
+            return .next
+        }
+        if text == "上一首" || text.contains("上一首歌") || text.contains("切到上一首") {
+            return .previous
+        }
+        if text.contains("音乐") || text.contains("歌曲") || text.contains("什么歌") {
+            if ["暂停", "停一下"].contains(where: text.contains) { return .pause }
+            if ["继续播放", "开始播放", "播放音乐", "放点音乐"].contains(where: text.contains) {
+                return .play
+            }
+            if ["什么歌", "当前歌曲", "播放状态", "音乐状态"].contains(where: text.contains) {
+                return .status
+            }
+        }
         return nil
     }
 

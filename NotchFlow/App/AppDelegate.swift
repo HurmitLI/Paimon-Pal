@@ -70,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let localPetModel = LocalPetModelController(
             petPanel: petController,
             timer: timer,
+            music: music,
             preferences: preferences,
             onOpenUtilityWindow: { [weak controller] section in
                 controller?.openUtilityWindow(section)
