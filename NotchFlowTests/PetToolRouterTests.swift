@@ -57,49 +57,66 @@ final class PetToolRouterTests: XCTestCase {
         XCTAssertNil(PetToolRouter.command(from: "查看今天的状态"))
     }
 
-    func testConversationContextUsesDirectPromptWithoutHistory() {
-        XCTAssertEqual(
-            PetConversationContextBuilder.prompt(
-                history: [],
-                latestUserMessage: "今天有点累"
-            ),
-            "今天有点累"
+    func testConversationContextUsesStructuredRequestWithoutHistory() {
+        let request = PetConversationContextBuilder.request(
+            history: [],
+            latestUserMessage: "今天有点累"
         )
+
+        XCTAssertEqual(request.prompt, "今天有点累")
+        XCTAssertTrue(request.history.isEmpty)
+        XCTAssertFalse(request.enableThinking)
     }
 
-    func testConversationContextKeepsOnlyTheLatestSixMessages() {
-        let history = (1...8).map { index in
+    func testConversationContextKeepsOnlyTheLatestEightStructuredMessages() {
+        let history = (1...10).map { index in
             PetConversationMessage(
                 role: index.isMultiple(of: 2) ? .assistant : .user,
                 text: "消息\(index)"
             )
         }
 
-        let prompt = PetConversationContextBuilder.prompt(
+        let request = PetConversationContextBuilder.request(
             history: history,
             latestUserMessage: "接着说"
         )
 
-        XCTAssertFalse(prompt.contains("消息1"))
-        XCTAssertFalse(prompt.contains("消息2"))
-        XCTAssertTrue(prompt.contains("用户：消息3"))
-        XCTAssertTrue(prompt.contains("派蒙：消息8"))
-        XCTAssertTrue(prompt.contains("【用户最新一句】\n接着说"))
-        XCTAssertTrue(prompt.contains("必须从记录中找到对应内容并直接准确回答"))
+        XCTAssertEqual(request.history.count, 8)
+        XCTAssertEqual(request.history.first?.content, "消息3")
+        XCTAssertEqual(request.history.first?.role, .user)
+        XCTAssertEqual(request.history.last?.content, "消息10")
+        XCTAssertEqual(request.history.last?.role, .assistant)
+        XCTAssertEqual(request.prompt, "接着说")
     }
 
-    func testConversationContextAllowsExactRecallWhenUserAsksAboutHistory() {
-        let prompt = PetConversationContextBuilder.prompt(
+    func testConversationContextPreservesRolesAndEnablesReasoningForFollowUp() {
+        let request = PetConversationContextBuilder.request(
             history: [
                 PetConversationMessage(role: .user, text: "我今天有点累"),
-                PetConversationMessage(role: .assistant, text: "那就先休息一下吧。")
+                PetConversationMessage(role: .assistant, text: "那就慢慢来吧。")
             ],
-            latestUserMessage: "我刚才说什么了？"
+            latestUserMessage: "怎么个慢慢来法？"
         )
 
-        XCTAssertTrue(prompt.contains("用户：我今天有点累"))
-        XCTAssertTrue(prompt.contains("用户明确询问前文时，可以准确复述相关内容"))
-        XCTAssertTrue(prompt.hasSuffix("我刚才说什么了？"))
+        XCTAssertEqual(request.history[0].role, .user)
+        XCTAssertEqual(request.history[1].role, .assistant)
+        XCTAssertEqual(request.prompt, "怎么个慢慢来法？")
+        XCTAssertTrue(request.enableThinking)
+    }
+
+    func testReasoningPolicyKeepsGreetingsFastAndThinksAboutMeaning() {
+        XCTAssertFalse(
+            PetReasoningPolicy.shouldThink(about: "你好", hasHistory: false)
+        )
+        XCTAssertFalse(
+            PetReasoningPolicy.shouldThink(about: "我今天有点累", hasHistory: true)
+        )
+        XCTAssertTrue(
+            PetReasoningPolicy.shouldThink(about: "为什么会这样？", hasHistory: false)
+        )
+        XCTAssertTrue(
+            PetReasoningPolicy.shouldThink(about: "这个具体怎么做？", hasHistory: true)
+        )
     }
 
     func testRecallResolverUsesLatestUserMessageInsteadOfModelGuessing() {

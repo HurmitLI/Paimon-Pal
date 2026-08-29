@@ -180,14 +180,14 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         }
 
         isGenerating = true
-        let contextualPrompt = PetConversationContextBuilder.prompt(
+        let modelRequest = PetConversationContextBuilder.request(
             history: history,
             latestUserMessage: prompt
         )
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let reply = try await LocalModelRunner.respond(to: contextualPrompt)
+                let reply = try await LocalModelRunner.respond(to: modelRequest)
                 messages.append(.init(role: .assistant, text: reply))
                 quickReply = reply
                 isGenerating = false
@@ -405,7 +405,7 @@ enum PetQuickPromptLayout {
     }
 }
 
-enum PetConversationRole: String, Equatable {
+enum PetConversationRole: String, Codable, Equatable {
     case user
     case assistant
 }
@@ -465,37 +465,78 @@ enum PetConversationBehaviorFeedbackResolver {
     }
 }
 
-enum PetConversationContextBuilder {
-    private static let maximumHistoryMessages = 6
-    private static let maximumCharactersPerMessage = 320
+struct PetModelRequest: Codable, Equatable {
+    struct Message: Codable, Equatable {
+        let role: PetConversationRole
+        let content: String
+    }
 
-    static func prompt(
+    let history: [Message]
+    let prompt: String
+    let enableThinking: Bool
+}
+
+enum PetReasoningPolicy {
+    static func shouldThink(
+        about latestUserMessage: String,
+        hasHistory: Bool
+    ) -> Bool {
+        let normalized = latestUserMessage
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let compact = normalized.replacingOccurrences(
+            of: #"\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        let fastReplies = ["你好", "嗨", "早上好", "中午好", "晚上好", "晚安", "谢谢", "好的", "好呀"]
+        if compact.count <= 8, fastReplies.contains(compact) {
+            return false
+        }
+
+        let reasoningTerms = [
+            "为什么", "怎么", "什么意思", "区别", "比较", "原因", "分析", "解释",
+            "具体", "怎么办", "应该", "能不能", "可不可以", "如果", "是不是", "你觉得"
+        ]
+        if reasoningTerms.contains(where: compact.contains) {
+            return true
+        }
+
+        // 有上下文的短追问通常省略了主语，交给思考模式解析指代。
+        let contextualTerms = ["这个", "那个", "这样", "那样", "它", "然后呢", "接着呢"]
+        if hasHistory, contextualTerms.contains(where: compact.contains) {
+            return true
+        }
+        return compact.contains("？") || compact.contains("?") || compact.count >= 28
+    }
+}
+
+enum PetConversationContextBuilder {
+    private static let maximumHistoryMessages = 8
+    private static let maximumCharactersPerMessage = 400
+
+    static func request(
         history: [PetConversationMessage],
         latestUserMessage: String
-    ) -> String {
+    ) -> PetModelRequest {
         let recentHistory = history
             .suffix(maximumHistoryMessages)
             .map { message in
-                let speaker = message.role == .user ? "用户" : "派蒙"
                 let normalized = message.text
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                     .prefix(maximumCharactersPerMessage)
-                return "\(speaker)：\(normalized)"
+                return PetModelRequest.Message(
+                    role: message.role,
+                    content: String(normalized)
+                )
             }
-            .joined(separator: "\n")
-
-        guard !recentHistory.isEmpty else { return latestUserMessage }
-        return """
-        【任务】只回答“用户最新一句”。回答前必须先阅读“最近对话记录”，并自然承接其中的信息。
-        【上下文规则】如果用户询问自己刚才说过什么、之前发生了什么，必须从记录中找到对应内容并直接准确回答；不得猜测、回避，也不得说用户讲错了。只有记录里确实没有答案时，才说明不记得。
-        【表达规则】通常不要机械复述整段记录，但用户明确询问前文时，可以准确复述相关内容。
-        【反馈规则】如果用户正在评价、质疑或纠正你的用词与行为，必须先直接判断用户说得是否正确，再回应如何调整；不得把其中的关键词误当成新的角色扮演话题，不得转移问题。
-
-        【最近对话记录】
-        \(recentHistory)
-        【用户最新一句】
-        \(latestUserMessage)
-        """
+        return PetModelRequest(
+            history: Array(recentHistory),
+            prompt: latestUserMessage,
+            enableThinking: PetReasoningPolicy.shouldThink(
+                about: latestUserMessage,
+                hasHistory: !recentHistory.isEmpty
+            )
+        )
     }
 }
 
@@ -701,7 +742,7 @@ private struct PetConversationView: View {
             }
 
             HStack {
-                Text("最多携带最近 6 条消息；关闭应用后不会保留。")
+                Text("最多携带最近 8 条消息；关闭应用后不会保留。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -978,14 +1019,19 @@ enum PetToolRouter {
 }
 
 private enum LocalModelRunner {
-    static func respond(to prompt: String) async throws -> String {
+    static func respond(to request: PetModelRequest) async throws -> String {
         let runtime = try LocalModelRuntime.locate()
         return try await Task.detached(priority: .userInitiated) {
             let process = Process()
             let standardOutput = Pipe()
             let standardError = Pipe()
+            let requestData = try JSONEncoder().encode(request)
             process.executableURL = runtime.executable
-            process.arguments = [runtime.modelDirectory.path, prompt]
+            process.arguments = [
+                runtime.modelDirectory.path,
+                "--request-base64",
+                requestData.base64EncodedString()
+            ]
             process.currentDirectoryURL = runtime.resourceDirectory
             process.standardOutput = standardOutput
             process.standardError = standardError
