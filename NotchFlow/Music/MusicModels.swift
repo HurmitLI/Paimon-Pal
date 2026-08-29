@@ -69,7 +69,7 @@ enum MusicServiceError: LocalizedError, Equatable {
         case .scriptUnavailable:
             "Apple Music 控制脚本无法创建。"
         case .permissionDenied:
-            "NotchFlow 没有控制 Apple Music 的权限。请在系统设置的自动化权限中允许。"
+            "Paimon Pal 没有控制 Apple Music 的权限。请在系统设置的自动化权限中允许。"
         case .commandFailed(let message):
             message.isEmpty ? "Apple Music 操作失败。" : message
         }

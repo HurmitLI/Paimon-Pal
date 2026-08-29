@@ -220,7 +220,7 @@ final class TimerController: ObservableObject {
     private func deliverFinishedNotificationIfAllowed() {
         guard [.authorized, .provisional].contains(notificationAuthorization) else { return }
         let content = UNMutableNotificationContent()
-        content.title = "NotchFlow 计时结束"
+        content.title = "Paimon Pal 计时结束"
         content.body = "设定的倒计时已经完成。"
         content.sound = .default
         let request = UNNotificationRequest(

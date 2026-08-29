@@ -53,7 +53,7 @@ struct IslandRootView: View {
                     Button("打开计时器") { onOpenUtilityWindow(.timer) }
                 }
                 Divider()
-                Button("退出 NotchFlow") { NSApp.terminate(nil) }
+                Button("退出 Paimon Pal") { NSApp.terminate(nil) }
             }
     }
 

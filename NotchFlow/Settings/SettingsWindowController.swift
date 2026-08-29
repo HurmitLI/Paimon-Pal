@@ -22,7 +22,7 @@ final class SettingsWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "NotchFlow 设置"
+        window.title = "Paimon Pal 设置"
         window.level = .normal
         window.collectionBehavior = [.managed]
         window.isReleasedWhenClosed = false
@@ -79,7 +79,7 @@ private struct SettingsRootView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("NotchFlow 设置")
+                Text("Paimon Pal 设置")
                     .font(.title2.bold())
                 Text("v\(versionText) · 本地原生 macOS 工具")
                     .foregroundStyle(.secondary)
@@ -147,7 +147,7 @@ private struct SettingsRootView: View {
                     Image(systemName: preferences.isPaused ? "pause.circle.fill" : "checkmark.circle.fill")
                         .foregroundStyle(preferences.isPaused ? .orange : .green)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(preferences.isPaused ? "NotchFlow 已暂停" : "NotchFlow 正在运行")
+                        Text(preferences.isPaused ? "Paimon Pal 已暂停" : "Paimon Pal 正在运行")
                             .font(.headline)
                         Text(pauseDescription)
                             .font(.caption)
@@ -182,7 +182,7 @@ private struct SettingsRootView: View {
             )
             featureToggle(
                 "文件架",
-                description: "接收拖入项并保留 NotchFlow 暂存副本；关闭不删除已有文件。",
+                description: "接收拖入项并保留 Paimon Pal 暂存副本；关闭不删除已有文件。",
                 icon: "tray.full",
                 binding: $preferences.fileShelfEnabled
             )
@@ -308,7 +308,7 @@ private struct SettingsRootView: View {
                     Label("不采集行为分析，不上传音乐、文件或系统状态。", systemImage: "hand.raised.fill")
                     Label("Apple Music 信息只用于本机显示与控制。", systemImage: "music.note")
                     Label("文件架只访问主动拖入或选择的内容；暂存副本默认保留 24 小时。", systemImage: "folder.badge.gearshape")
-                    Label("Finder 原文件不会被 NotchFlow 移动或删除。", systemImage: "checkmark.shield")
+                    Label("Finder 原文件不会被 Paimon Pal 移动或删除。", systemImage: "checkmark.shield")
                 }
                 .font(.callout)
                 .padding(8)
@@ -316,7 +316,7 @@ private struct SettingsRootView: View {
 
             GroupBox("版本与支持范围") {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("NotchFlow v\(versionText)")
+                    Text("Paimon Pal（PP）v\(versionText)")
                         .font(.headline)
                     Text("最低支持 macOS 14；当前正式验证设备为 Apple Silicon 刘海屏 MacBook Pro。")
                     Text("音乐首版支持 Apple Music；Spotify 暂缓。屏幕亮度因缺少稳定公开接口而不可用。")

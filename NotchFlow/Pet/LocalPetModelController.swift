@@ -126,7 +126,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         switch destination {
         case .settings:
             onOpenSettings()
-            return "好哒，已经打开 NotchFlow 设置。"
+            return "好哒，已经打开 Paimon Pal 设置。"
         case .music:
             return openUtility(.music, isEnabled: preferences.musicEnabled, title: "音乐")
         case .files:
@@ -148,7 +148,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             return "\(title)功能目前是关闭的，我已经打开设置，你可以先把它开启。"
         }
         onOpenUtilityWindow(section)
-        return "好哒，已经打开 NotchFlow \(title)窗口。"
+        return "好哒，已经打开 Paimon Pal \(title)窗口。"
     }
 
     private func makeConversationWindow() -> NSWindow {

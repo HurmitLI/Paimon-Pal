@@ -33,8 +33,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if visible, statusItem == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
             if let button = item.button {
-                button.image = NSImage(systemSymbolName: "capsule", accessibilityDescription: "NotchFlow")
-                button.toolTip = "NotchFlow"
+                button.image = NSImage(systemSymbolName: "capsule", accessibilityDescription: "Paimon Pal")
+                button.toolTip = "Paimon Pal（PP）"
             }
             item.menu = menu
             statusItem = item
@@ -55,7 +55,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let until = preferences.pauseUntil, preferences.isPaused {
             statusTitle = "已暂停至 \(until.formatted(date: .omitted, time: .shortened))"
         } else {
-            statusTitle = "NotchFlow 正在运行"
+            statusTitle = "Paimon Pal 正在运行"
         }
         let status = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         status.isEnabled = false
@@ -118,7 +118,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        menu.addItem(actionItem("退出 NotchFlow", action: #selector(quit), key: "q"))
+        menu.addItem(actionItem("退出 Paimon Pal", action: #selector(quit), key: "q"))
     }
 
     private func actionItem(_ title: String, action: Selector, key: String) -> NSMenuItem {

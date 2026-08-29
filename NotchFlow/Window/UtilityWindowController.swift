@@ -45,7 +45,7 @@ final class UtilityWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "NotchFlow"
+        window.title = "Paimon Pal"
         window.level = .normal
         window.collectionBehavior = [.managed]
         window.isReleasedWhenClosed = false
@@ -97,7 +97,7 @@ private struct UtilityRootView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("NotchFlow 功能窗口")
+                Text("Paimon Pal 功能窗口")
                     .font(.title2.bold())
                 Text("复杂内容使用普通窗口，不固定遮挡当前应用。")
                     .foregroundStyle(.secondary)

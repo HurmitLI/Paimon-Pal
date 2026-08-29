@@ -47,7 +47,7 @@ enum FileShelfStoreError: LocalizedError, Sendable {
         case .insufficientSpace(let name):
             "剩余磁盘空间不足，未复制 \(name)。"
         case .unmanagedItem:
-            "该文件不在 NotchFlow 暂存目录内，已拒绝删除。"
+            "该文件不在 Paimon Pal 暂存目录内，已拒绝删除。"
         case .invalidExportDestination:
             "选择的位置不是可用的文件夹。"
         }

@@ -29,13 +29,13 @@ final class LoginItemController: ObservableObject {
         switch SMAppService.mainApp.status {
         case .enabled:
             isEnabled = true
-            message = "登录 Mac 后会自动启动 NotchFlow。"
+            message = "登录 Mac 后会自动启动 Paimon Pal。"
         case .requiresApproval:
             isEnabled = false
-            message = "需要在系统设置的“登录项”中允许 NotchFlow。"
+            message = "需要在系统设置的“登录项”中允许 Paimon Pal。"
         case .notRegistered:
             isEnabled = false
-            message = "NotchFlow 不会随登录自动启动。"
+            message = "Paimon Pal 不会随登录自动启动。"
         case .notFound:
             isEnabled = false
             message = "当前构建暂时不能注册开机启动。"

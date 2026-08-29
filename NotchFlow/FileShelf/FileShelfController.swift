@@ -43,7 +43,7 @@ final class FileShelfController: ObservableObject {
             case .success(let outcome):
                 items = outcome.items
                 if outcome.deletedCount > 0 {
-                    message = "已自动清理 \(outcome.deletedCount) 个超过 24 小时的 NotchFlow 暂存副本。"
+                    message = "已自动清理 \(outcome.deletedCount) 个超过 24 小时的 Paimon Pal 暂存副本。"
                 }
             case .failure(let errorMessage):
                 message = "文件架加载失败：\(errorMessage)"
@@ -68,7 +68,7 @@ final class FileShelfController: ObservableObject {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = false
         panel.prompt = "暂存副本"
-        panel.message = "选中内容会复制到 NotchFlow，原文件不会移动或删除。"
+        panel.message = "选中内容会复制到 Paimon Pal，原文件不会移动或删除。"
         panel.begin { [weak self] response in
             guard response == .OK else { return }
             let urls = panel.urls
@@ -122,7 +122,7 @@ final class FileShelfController: ObservableObject {
         guard !urls.isEmpty, !isImporting else { return false }
         isImporting = true
         coordinator.beginFileReceiving()
-        message = "正在复制 \(urls.count) 项内容到 NotchFlow 文件架…"
+        message = "正在复制 \(urls.count) 项内容到 Paimon Pal 文件架…"
         let store = store
 
         Task { [weak self] in
@@ -218,7 +218,7 @@ final class FileShelfController: ObservableObject {
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
         panel.prompt = "导出到这里"
-        panel.message = "选择目标文件夹；NotchFlow 会复制副本，不会删除文件架内容。"
+        panel.message = "选择目标文件夹；Paimon Pal 会复制副本，不会删除文件架内容。"
         panel.begin { [weak self] response in
             guard response == .OK, let directoryURL = panel.url else { return }
             Task { @MainActor [weak self] in
@@ -292,7 +292,7 @@ final class FileShelfController: ObservableObject {
             case .success(let outcome):
                 items = outcome.items
                 if outcome.failureMessages.isEmpty {
-                    message = "已删除 \(outcome.deletedCount) 个 NotchFlow 暂存副本；Finder 原文件未受影响。"
+                    message = "已删除 \(outcome.deletedCount) 个 Paimon Pal 暂存副本；Finder 原文件未受影响。"
                 } else {
                     message = "已删除 \(outcome.deletedCount) 个，失败 \(outcome.failureMessages.count) 个。"
                 }

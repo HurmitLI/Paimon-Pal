@@ -12,7 +12,7 @@ final class OnboardingWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "欢迎使用 NotchFlow"
+        window.title = "欢迎使用 Paimon Pal"
         window.level = .normal
         window.collectionBehavior = [.managed]
         window.isReleasedWhenClosed = false
@@ -53,7 +53,7 @@ private struct OnboardingView: View {
                     .frame(width: 62, height: 62)
                     .background(.cyan.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("欢迎使用 NotchFlow")
+                    Text("欢迎使用 Paimon Pal")
                         .font(.largeTitle.bold())
                     Text("把 MacBook 刘海变成随手可用的状态与快捷操作入口。")
                         .foregroundStyle(.secondary)

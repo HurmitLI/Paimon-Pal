@@ -31,7 +31,7 @@ struct FileShelfView: View {
                 ContentUnavailableView(
                     "还没有暂存文件",
                     systemImage: "tray",
-                    description: Text("拖入文件或文件夹，NotchFlow 只会复制副本。")
+                    description: Text("拖入文件或文件夹，Paimon Pal 只会复制副本。")
                 )
                 .frame(maxHeight: .infinity)
             } else {
@@ -51,7 +51,7 @@ struct FileShelfView: View {
                 .textSelection(.enabled)
         }
         .confirmationDialog(
-            "只删除 NotchFlow 创建的暂存副本？",
+            "只删除 Paimon Pal 创建的暂存副本？",
             isPresented: $isClearConfirmationPresented,
             titleVisibility: .visible
         ) {
@@ -70,7 +70,7 @@ struct FileShelfView: View {
             ),
             presenting: pendingDelete
         ) { item in
-            Button("仅删除 NotchFlow 副本", role: .destructive) {
+            Button("仅删除 Paimon Pal 副本", role: .destructive) {
                 shelf.delete(item)
                 pendingDelete = nil
             }
@@ -160,7 +160,7 @@ struct FileShelfView: View {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
-            .help("删除 NotchFlow 暂存副本")
+            .help("删除 Paimon Pal 暂存副本")
         }
         .padding(10)
         .background(.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
