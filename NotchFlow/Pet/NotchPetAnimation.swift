@@ -36,6 +36,49 @@ enum NotchPetMotion: String, CaseIterable {
     var gridRows: Int {
         self == .idle ? 4 : 2
     }
+
+    var usesStableBodyCanvas: Bool {
+        switch self {
+        case .idle, .clickReaction, .listening, .speaking, .successCelebration:
+            true
+        case .sleepToPeek, .peekToEmerge, .returnToSleep:
+            false
+        }
+    }
+
+    var transitionCalibration: NotchPetTransitionCalibration? {
+        switch self {
+        case .sleepToPeek:
+            // 与 peekToEmerge 首帧保持同一头部尺寸和垂直落点。
+            .init(referenceFrameIndex: 7, targetContentHeight: 207, bottomInset: 77)
+        case .peekToEmerge:
+            // 最后一帧必须与待机第一帧同尺寸、同脚底落点。
+            .init(referenceFrameIndex: 7, targetContentHeight: 332, bottomInset: 24)
+        case .returnToSleep:
+            // 第一帧必须与待机最后一帧同尺寸、同脚底落点。
+            .init(referenceFrameIndex: 0, targetContentHeight: 332, bottomInset: 24)
+        case .idle, .clickReaction, .listening, .speaking, .successCelebration:
+            nil
+        }
+    }
+
+    var transitionZoomCompensation: [CGFloat]? {
+        switch self {
+        case .sleepToPeek:
+            Array(repeating: 0.80, count: 8)
+        case .peekToEmerge:
+            [0.80, 0.86, 0.88, 0.89, 0.89, 0.92, 0.97, 1.00]
+        case .idle, .clickReaction, .listening, .speaking,
+             .successCelebration, .returnToSleep:
+            nil
+        }
+    }
+}
+
+struct NotchPetTransitionCalibration: Equatable {
+    let referenceFrameIndex: Int
+    let targetContentHeight: CGFloat
+    let bottomInset: CGFloat
 }
 
 enum NotchPetAssetError: LocalizedError {
@@ -209,6 +252,197 @@ enum NotchPetOverlayCleaner {
     }
 }
 
+enum NotchPetFrameNormalizer {
+    static let canvasSize = CGSize(width: 512, height: 512)
+    static let targetContentHeight: CGFloat = 332
+    static let maximumContentWidth: CGFloat = 456
+    static let bottomInset: CGFloat = 24
+    private static let bytesPerPixel = 4
+
+    static func normalizing(_ frames: [CGImage]) -> [CGImage] {
+        let measuredFrames = frames.compactMap { frame -> (CGImage, CGRect)? in
+            guard let bounds = contentBounds(in: frame) else { return nil }
+            return (frame, bounds)
+        }
+        guard measuredFrames.count == frames.count,
+              let representativeHeight = median(measuredFrames.map(\.1.height)),
+              let representativeCenterX = median(measuredFrames.map(\.1.midX)),
+              let minimumSourceBottom = measuredFrames.map({
+                  CGFloat($0.0.height) - $0.1.maxY
+              }).min(),
+              let maximumFrameContentWidth = measuredFrames.map(\.1.width).max(),
+              representativeHeight > 0,
+              maximumFrameContentWidth > 0 else { return frames }
+
+        let scale = min(
+            targetContentHeight / representativeHeight,
+            maximumContentWidth / maximumFrameContentWidth
+        )
+
+        return rendering(
+            frames,
+            scale: scale,
+            sourceCenterX: representativeCenterX,
+            sourceBottomInset: minimumSourceBottom,
+            targetBottomInset: bottomInset
+        )
+    }
+
+    static func normalizing(
+        _ frames: [CGImage],
+        transition calibration: NotchPetTransitionCalibration
+    ) -> [CGImage] {
+        guard frames.indices.contains(calibration.referenceFrameIndex) else { return frames }
+        let referenceFrame = frames[calibration.referenceFrameIndex]
+        guard let referenceBounds = contentBounds(in: referenceFrame),
+              referenceBounds.height > 0 else { return frames }
+        let scale = min(
+            calibration.targetContentHeight / referenceBounds.height,
+            maximumContentWidth / referenceBounds.width
+        )
+        let sourceBottomInset = CGFloat(referenceFrame.height) - referenceBounds.maxY
+        return rendering(
+            frames,
+            scale: scale,
+            sourceCenterX: referenceBounds.midX,
+            sourceBottomInset: sourceBottomInset,
+            targetBottomInset: calibration.bottomInset
+        )
+    }
+
+    static func compensatingTransitionZoom(
+        _ frames: [CGImage],
+        scaleFactors: [CGFloat]
+    ) -> [CGImage] {
+        guard frames.count == scaleFactors.count else { return frames }
+        return zip(frames, scaleFactors).map { frame, requestedScale in
+            let scale = min(max(requestedScale, 0.5), 1)
+            guard scale < 0.999,
+                  let bounds = contentBounds(in: frame),
+                  let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+                  let context = CGContext(
+                      data: nil,
+                      width: frame.width,
+                      height: frame.height,
+                      bitsPerComponent: 8,
+                      bytesPerRow: frame.width * bytesPerPixel,
+                      space: colorSpace,
+                      bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                          | CGImageAlphaInfo.premultipliedLast.rawValue
+                  ) else { return frame }
+
+            // 生成素材前半段自带镜头近景，头部比待机大约 25%。
+            // 以当前可见内容的水平中心和底边为支点收小，既消除大头，
+            // 又保留双手趴在刘海边缘以及身体向下露出的原始轨迹。
+            let sourceBottomInset = CGFloat(frame.height) - bounds.maxY
+            context.interpolationQuality = .high
+            context.draw(
+                frame,
+                in: CGRect(
+                    x: bounds.midX * (1 - scale),
+                    y: sourceBottomInset * (1 - scale),
+                    width: CGFloat(frame.width) * scale,
+                    height: CGFloat(frame.height) * scale
+                )
+            )
+            return context.makeImage() ?? frame
+        }
+    }
+
+    private static func rendering(
+        _ frames: [CGImage],
+        scale: CGFloat,
+        sourceCenterX: CGFloat,
+        sourceBottomInset: CGFloat,
+        targetBottomInset: CGFloat
+    ) -> [CGImage] {
+        frames.map { frame in
+            guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+                  let context = CGContext(
+                      data: nil,
+                      width: Int(canvasSize.width),
+                      height: Int(canvasSize.height),
+                      bitsPerComponent: 8,
+                      bytesPerRow: Int(canvasSize.width) * bytesPerPixel,
+                      space: colorSpace,
+                      bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                          | CGImageAlphaInfo.premultipliedLast.rawValue
+                  ) else { return frame }
+
+            context.interpolationQuality = .high
+            context.draw(
+                frame,
+                in: CGRect(
+                    x: canvasSize.width / 2 - sourceCenterX * scale,
+                    // Bitmap rows are measured from the image top, while Core
+                    // Graphics draws from the lower-left. A whole action uses
+                    // one source anchor and one scale, preserving its original
+                    // movement without introducing per-frame size pumping.
+                    y: targetBottomInset - sourceBottomInset * scale,
+                    width: CGFloat(frame.width) * scale,
+                    height: CGFloat(frame.height) * scale
+                )
+            )
+            return context.makeImage() ?? frame
+        }
+    }
+
+    static func median(_ values: [CGFloat]) -> CGFloat? {
+        guard !values.isEmpty else { return nil }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[middle - 1] + sorted[middle]) / 2
+        }
+        return sorted[middle]
+    }
+
+    static func contentBounds(in image: CGImage) -> CGRect? {
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil,
+                  width: image.width,
+                  height: image.height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: image.width * bytesPerPixel,
+                  space: colorSpace,
+                  bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                      | CGImageAlphaInfo.premultipliedLast.rawValue
+              ),
+              let data = context.data else { return nil }
+
+        context.draw(
+            image,
+            in: CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        )
+        let pixels = data.assumingMemoryBound(to: UInt8.self)
+        let bytesPerRow = image.width * bytesPerPixel
+        var minimumX = image.width
+        var minimumY = image.height
+        var maximumX = -1
+        var maximumY = -1
+
+        for y in 0..<image.height {
+            for x in 0..<image.width {
+                let alpha = pixels[y * bytesPerRow + x * bytesPerPixel + 3]
+                guard alpha > 8 else { continue }
+                minimumX = min(minimumX, x)
+                minimumY = min(minimumY, y)
+                maximumX = max(maximumX, x)
+                maximumY = max(maximumY, y)
+            }
+        }
+
+        guard maximumX >= minimumX, maximumY >= minimumY else { return nil }
+        return CGRect(
+            x: minimumX,
+            y: minimumY,
+            width: maximumX - minimumX + 1,
+            height: maximumY - minimumY + 1
+        )
+    }
+}
+
 struct NotchPetAssetLoader {
     let bundle: Bundle
 
@@ -240,7 +474,21 @@ struct NotchPetAssetLoader {
             }
             return NotchPetOverlayCleaner.removingGeneratedNotch(from: frame)
         }
-        return cleanedFrames.map { cleanedFrame in
+        let normalizedFrames = motion.usesStableBodyCanvas
+            ? NotchPetFrameNormalizer.normalizing(cleanedFrames)
+            : motion.transitionCalibration.map {
+                NotchPetFrameNormalizer.normalizing(
+                    cleanedFrames,
+                    transition: $0
+                )
+            } ?? cleanedFrames
+        let presentationFrames = motion.transitionZoomCompensation.map {
+            NotchPetFrameNormalizer.compensatingTransitionZoom(
+                normalizedFrames,
+                scaleFactors: $0
+            )
+        } ?? normalizedFrames
+        return presentationFrames.map { cleanedFrame in
             return NSImage(
                 cgImage: cleanedFrame,
                 size: NSSize(width: cleanedFrame.width, height: cleanedFrame.height)

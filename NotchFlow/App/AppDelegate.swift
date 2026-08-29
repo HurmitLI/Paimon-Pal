@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Darwin
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -15,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindowController: OnboardingWindowController?
     private var statusItemController: StatusItemController?
     private var pauseExpiryTask: Task<Void, Never>?
+    private var singleInstanceLock: SingleInstanceLock?
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,6 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return
         }
+
+        guard let instanceLock = SingleInstanceLock.acquireDefault() else {
+            NSApp.terminate(nil)
+            return
+        }
+        singleInstanceLock = instanceLock
 
         let coordinator = ActivityCoordinator()
         let motion = MotionPreferences()
@@ -112,7 +120,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onTestPetSuccess = { [weak petController] in
             petController?.celebrateSuccessForTesting()
         }
-        if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_CONVERSATION_AUTOSHOW"] == "1" {
+        if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_QUICK_PROMPT_AUTOSHOW"] == "1" {
+            DispatchQueue.main.async {
+                localPetModel.showQuickPrompt()
+            }
+        } else if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_CONVERSATION_AUTOSHOW"] == "1" {
             DispatchQueue.main.async {
                 localPetModel.showConversationPrompt()
             }
@@ -226,5 +238,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         statusItemController?.refreshMenu()
+    }
+}
+
+final class SingleInstanceLock {
+    private let fileDescriptor: Int32
+
+    private init(fileDescriptor: Int32) {
+        self.fileDescriptor = fileDescriptor
+    }
+
+    static func acquireDefault() -> SingleInstanceLock? {
+        guard let applicationSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else { return nil }
+        let directory = applicationSupport.appendingPathComponent(
+            "Paimon Pal",
+            isDirectory: true
+        )
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            return nil
+        }
+        return acquire(at: directory.appendingPathComponent("running.lock"))
+    }
+
+    static func acquire(at url: URL) -> SingleInstanceLock? {
+        let fileDescriptor = url.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return Int32(-1) }
+            return Darwin.open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        }
+        guard fileDescriptor >= 0 else { return nil }
+        guard flock(fileDescriptor, LOCK_EX | LOCK_NB) == 0 else {
+            Darwin.close(fileDescriptor)
+            return nil
+        }
+        return SingleInstanceLock(fileDescriptor: fileDescriptor)
+    }
+
+    deinit {
+        _ = flock(fileDescriptor, LOCK_UN)
+        _ = Darwin.close(fileDescriptor)
     }
 }

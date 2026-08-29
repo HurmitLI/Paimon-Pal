@@ -24,28 +24,7 @@ struct NotchPetView: View {
     }
 
     private var verticalOffset: CGFloat {
-        // 这几套生成素材的角色在画布中所处高度不同。
-        // 分状态校准头饰基线，使它始终低于本机 32pt 的真实刘海安全线。
-        switch pet.stage {
-        case .sleeping:
-            8
-        case .waking:
-            8
-        case .emerging:
-            18
-        case .idle:
-            18
-        case .reacting:
-            22
-        case .listening:
-            14
-        case .speaking:
-            18
-        case .celebrating:
-            10
-        case .returning:
-            18
-        }
+        NotchPetPresentationMetrics.verticalOffset(for: pet.stage)
     }
 
     private var accessibilityLabel: String {
@@ -59,6 +38,33 @@ struct NotchPetView: View {
         case .speaking: "宠物正在回答"
         case .celebrating: "宠物正在庆祝成功"
         case .returning: "宠物正在返回刘海"
+        }
+    }
+}
+
+enum NotchPetPresentationMetrics {
+    static func verticalOffset(for stage: NotchPetStage) -> CGFloat {
+        // 完整身体动作已经在素材加载层统一角色高度与脚底锚点，
+        // 因此必须共用同一偏移，避免状态切换时再次人为跳位。
+        switch stage {
+        case .sleeping:
+            8
+        case .waking:
+            8
+        case .emerging:
+            18
+        case .idle:
+            18
+        case .reacting:
+            18
+        case .listening:
+            18
+        case .speaking:
+            18
+        case .celebrating:
+            18
+        case .returning:
+            18
         }
     }
 }

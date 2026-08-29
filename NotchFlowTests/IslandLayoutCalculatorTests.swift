@@ -1,8 +1,29 @@
+import AppKit
 import CoreGraphics
 import XCTest
 @testable import NotchFlow
 
 final class IslandLayoutCalculatorTests: XCTestCase {
+    func testSingleInstanceLockRejectsSecondOwnerAndRecoversAfterRelease() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let lockURL = directory.appendingPathComponent("running.lock")
+
+        var firstOwner: SingleInstanceLock? = try XCTUnwrap(
+            SingleInstanceLock.acquire(at: lockURL)
+        )
+        withExtendedLifetime(firstOwner) {
+            XCTAssertNil(SingleInstanceLock.acquire(at: lockURL))
+        }
+
+        firstOwner = nil
+        XCTAssertNotNil(SingleInstanceLock.acquire(at: lockURL))
+    }
+
     private let notchedScreen = IslandScreenGeometry(
         screenID: "1",
         screenName: "Built-in",
@@ -24,6 +45,168 @@ final class IslandLayoutCalculatorTests: XCTestCase {
 
         XCTAssertEqual(frames.count, 16)
         XCTAssertTrue(frames.allSatisfy { $0.size.width > 0 && $0.size.height > 0 })
+    }
+
+    func testIdleAndListeningMotionsShareCanvasHeightAndFootAnchor() throws {
+        let motions: [NotchPetMotion] = [.idle, .listening]
+        var contentHeights: [CGFloat] = []
+        var bottomAnchors: [CGFloat] = []
+
+        for motion in motions {
+            let images = try NotchPetAssetLoader().frames(for: motion)
+            let frames = try images.map { image in
+                var proposedRect = CGRect(origin: .zero, size: image.size)
+                guard let frame = image.cgImage(
+                    forProposedRect: &proposedRect,
+                    context: nil,
+                    hints: nil
+                ) else {
+                    throw XCTSkip("无法读取 \(motion.rawValue) 的 CGImage")
+                }
+                return frame
+            }
+            let measuredBounds = frames.compactMap(NotchPetFrameNormalizer.contentBounds)
+            guard let contentHeight = NotchPetFrameNormalizer.median(
+                measuredBounds.map(\.height)
+            ), let bottomAnchor = measuredBounds.map({
+                NotchPetFrameNormalizer.canvasSize.height - $0.maxY
+            }).min() else {
+                XCTFail("\(motion.rawValue) 没有可见角色像素")
+                continue
+            }
+
+            XCTAssertTrue(frames.allSatisfy {
+                $0.width == Int(NotchPetFrameNormalizer.canvasSize.width) &&
+                    $0.height == Int(NotchPetFrameNormalizer.canvasSize.height)
+            })
+            contentHeights.append(contentHeight)
+            bottomAnchors.append(bottomAnchor)
+        }
+
+        XCTAssertLessThanOrEqual(
+            (contentHeights.max() ?? 0) - (contentHeights.min() ?? 0),
+            3
+        )
+        XCTAssertLessThanOrEqual(
+            (bottomAnchors.max() ?? 0) - (bottomAnchors.min() ?? 0),
+            2
+        )
+    }
+
+    func testStableBodyStagesUseOneVerticalOffset() {
+        let stages: [NotchPetStage] = [
+            .idle, .reacting, .listening, .speaking, .celebrating
+        ]
+        let offsets = Set(stages.map(NotchPetPresentationMetrics.verticalOffset))
+
+        XCTAssertEqual(offsets, [18])
+    }
+
+    func testEveryFullBodyMotionUsesStableCanvasNormalization() {
+        let expected: Set<NotchPetMotion> = [
+            .idle, .clickReaction, .listening, .speaking, .successCelebration
+        ]
+
+        XCTAssertEqual(
+            Set(NotchPetMotion.allCases.filter(\.usesStableBodyCanvas)),
+            expected
+        )
+    }
+
+    func testTransitionMotionsUseEndpointCalibrations() {
+        XCTAssertEqual(
+            NotchPetMotion.sleepToPeek.transitionCalibration,
+            .init(referenceFrameIndex: 7, targetContentHeight: 207, bottomInset: 77)
+        )
+        XCTAssertEqual(
+            NotchPetMotion.peekToEmerge.transitionCalibration,
+            .init(referenceFrameIndex: 7, targetContentHeight: 332, bottomInset: 24)
+        )
+        XCTAssertEqual(
+            NotchPetMotion.returnToSleep.transitionCalibration,
+            .init(referenceFrameIndex: 0, targetContentHeight: 332, bottomInset: 24)
+        )
+        XCTAssertEqual(
+            NotchPetMotion.sleepToPeek.transitionZoomCompensation,
+            Array(repeating: 0.80, count: 8)
+        )
+        XCTAssertEqual(
+            NotchPetMotion.peekToEmerge.transitionZoomCompensation,
+            [0.80, 0.86, 0.88, 0.89, 0.89, 0.92, 0.97, 1.00]
+        )
+        XCTAssertNil(NotchPetMotion.returnToSleep.transitionZoomCompensation)
+    }
+
+    func testTransitionEndpointsMatchAdjacentAnimationSizeAndAnchor() throws {
+        let sleepLast = try petFrameMetrics(for: .sleepToPeek, frameIndex: 7)
+        let emergeFirst = try petFrameMetrics(for: .peekToEmerge, frameIndex: 0)
+        let emergeLast = try petFrameMetrics(for: .peekToEmerge, frameIndex: 7)
+        let idleFirst = try petFrameMetrics(for: .idle, frameIndex: 0)
+        let returnFirst = try petFrameMetrics(for: .returnToSleep, frameIndex: 0)
+
+        XCTAssertEqual(sleepLast.height, emergeFirst.height, accuracy: 3)
+        XCTAssertEqual(sleepLast.bottomInset, emergeFirst.bottomInset, accuracy: 3)
+        XCTAssertEqual(emergeLast.height, idleFirst.height, accuracy: 3)
+        XCTAssertEqual(emergeLast.bottomInset, idleFirst.bottomInset, accuracy: 2)
+        XCTAssertEqual(returnFirst.height, idleFirst.height, accuracy: 3)
+        XCTAssertEqual(returnFirst.bottomInset, idleFirst.bottomInset, accuracy: 2)
+    }
+
+    func testFrameNormalizerUnifiesDifferentSourceCanvasRatios() throws {
+        let square = try makeOpaqueFrame(
+            size: CGSize(width: 100, height: 100),
+            contentRect: CGRect(x: 24, y: 12, width: 52, height: 62)
+        )
+        let portrait = try makeOpaqueFrame(
+            size: CGSize(width: 80, height: 120),
+            contentRect: CGRect(x: 18, y: 22, width: 44, height: 82)
+        )
+        let squareResult = try XCTUnwrap(
+            NotchPetFrameNormalizer.normalizing([square]).first
+        )
+        let portraitResult = try XCTUnwrap(
+            NotchPetFrameNormalizer.normalizing([portrait]).first
+        )
+        let squareBounds = try XCTUnwrap(
+            NotchPetFrameNormalizer.contentBounds(in: squareResult)
+        )
+        let portraitBounds = try XCTUnwrap(
+            NotchPetFrameNormalizer.contentBounds(in: portraitResult)
+        )
+
+        XCTAssertEqual(squareBounds.height, portraitBounds.height, accuracy: 2)
+        XCTAssertEqual(
+            NotchPetFrameNormalizer.canvasSize.height - squareBounds.maxY,
+            NotchPetFrameNormalizer.canvasSize.height - portraitBounds.maxY,
+            accuracy: 2
+        )
+    }
+
+    func testTransitionZoomCompensationPreservesBottomAnchor() throws {
+        let frame = try makeOpaqueFrame(
+            size: CGSize(width: 100, height: 100),
+            contentRect: CGRect(x: 20, y: 10, width: 60, height: 70)
+        )
+        let originalBounds = try XCTUnwrap(
+            NotchPetFrameNormalizer.contentBounds(in: frame)
+        )
+        let result = try XCTUnwrap(
+            NotchPetFrameNormalizer.compensatingTransitionZoom(
+                [frame],
+                scaleFactors: [0.8]
+            ).first
+        )
+        let resultBounds = try XCTUnwrap(
+            NotchPetFrameNormalizer.contentBounds(in: result)
+        )
+
+        XCTAssertEqual(resultBounds.width, originalBounds.width * 0.8, accuracy: 2)
+        XCTAssertEqual(resultBounds.height, originalBounds.height * 0.8, accuracy: 2)
+        XCTAssertEqual(
+            CGFloat(result.height) - resultBounds.maxY,
+            CGFloat(frame.height) - originalBounds.maxY,
+            accuracy: 1
+        )
     }
 
     func testSpriteGridKeepsLegacyEightFrameMotions() {
@@ -475,6 +658,46 @@ final class IslandLayoutCalculatorTests: XCTestCase {
                 errorMessage: nil
             ).height,
             154
+        )
+    }
+
+    private func makeOpaqueFrame(size: CGSize, contentRect: CGRect) throws -> CGImage {
+        let width = Int(size.width)
+        let height = Int(size.height)
+        let colorSpace = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let context = try XCTUnwrap(CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+                | CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(contentRect)
+        return try XCTUnwrap(context.makeImage())
+    }
+
+    private func petFrameMetrics(
+        for motion: NotchPetMotion,
+        frameIndex: Int
+    ) throws -> (height: CGFloat, bottomInset: CGFloat) {
+        let frames = try NotchPetAssetLoader().frames(for: motion)
+        guard frames.indices.contains(frameIndex) else {
+            throw XCTSkip("\(motion.rawValue) 缺少第 \(frameIndex + 1) 帧")
+        }
+        var proposedRect = CGRect(origin: .zero, size: frames[frameIndex].size)
+        let frame = try XCTUnwrap(frames[frameIndex].cgImage(
+            forProposedRect: &proposedRect,
+            context: nil,
+            hints: nil
+        ))
+        let bounds = try XCTUnwrap(NotchPetFrameNormalizer.contentBounds(in: frame))
+        return (
+            bounds.height,
+            NotchPetFrameNormalizer.canvasSize.height - bounds.maxY
         )
     }
 }
