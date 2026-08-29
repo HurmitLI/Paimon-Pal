@@ -10,6 +10,7 @@ struct IslandRootView: View {
     @ObservedObject var systemStatus: SystemStatusController
     @ObservedObject var timer: TimerController
     @ObservedObject var preferences: AppPreferences
+    @ObservedObject var screenService: ScreenGeometryService
     let onOpenUtilityWindow: (UtilitySection) -> Void
     let onOpenSettings: () -> Void
 
@@ -20,7 +21,7 @@ struct IslandRootView: View {
             .padding(contentPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(.white)
-            .background(.black)
+            .background(drawsIslandBackground ? Color.black : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .animation(motion.swiftUIAnimation, value: animationPresentation)
@@ -39,8 +40,6 @@ struct IslandRootView: View {
             .contextMenu {
                 Button("打开设置…") { onOpenSettings() }
                 Divider()
-                Button("模拟紧凑活动") { simulateCompactActivity() }
-                Button("模拟临时 HUD") { simulateHUD() }
                 if preferences.musicEnabled {
                     Button("打开音乐窗口") { onOpenUtilityWindow(.music) }
                 }
@@ -54,7 +53,6 @@ struct IslandRootView: View {
                     Button("打开计时器") { onOpenUtilityWindow(.timer) }
                 }
                 Divider()
-                Button("清除模拟活动") { coordinator.clearAllActivities() }
                 Button("退出 NotchFlow") { NSApp.terminate(nil) }
             }
     }
@@ -158,20 +156,23 @@ struct IslandRootView: View {
                 }
             } else {
                 HStack(spacing: 0) {
-                    Button(action: simulateCompactActivity) {
-                        Image(systemName: "play.fill")
+                    Button(action: onOpenSettings) {
+                        Image(systemName: "gearshape.fill")
                             .frame(width: 28, height: 28)
                     }
                     .buttonStyle(.plain)
+                    .help("打开设置")
 
                     Spacer(minLength: 0)
 
-                    Button(action: { onOpenUtilityWindow(.files) }) {
-                        Image(systemName: "macwindow")
-                            .frame(width: 28, height: 28)
+                    if preferences.fileShelfEnabled {
+                        Button(action: { onOpenUtilityWindow(.files) }) {
+                            Image(systemName: "tray.full.fill")
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .help("打开文件架")
                     }
-                    .buttonStyle(.plain)
-                    .help("打开普通功能窗口")
                 }
             }
         case .fileReceiving:
@@ -211,6 +212,24 @@ struct IslandRootView: View {
         case .temporaryHUD, .fileReceiving: 18
         case .hoverPreview: 17
         case .expanded: 18
+        }
+    }
+
+    private var drawsIslandBackground: Bool {
+        guard screenService.current(
+            mode: preferences.displayTargetMode,
+            specificDisplayID: preferences.specificDisplayID
+        )?.mode == .physicalNotch else {
+            return true
+        }
+
+        switch coordinator.state {
+        case .silent:
+            return false
+        case .hoverPreview(let activity):
+            return activity != nil
+        case .compact, .temporaryHUD, .expanded, .fileReceiving:
+            return true
         }
     }
 
@@ -327,24 +346,6 @@ struct IslandRootView: View {
         .frame(width: 66, height: 3)
         .accessibilityLabel("状态进度")
         .accessibilityValue("\(Int((progress * 100).rounded()))%")
-    }
-
-    private func simulateCompactActivity() {
-        coordinator.upsert(IslandActivity(
-            id: "demo.music",
-            kind: .music,
-            title: "模拟活动",
-            detail: "用于验证 S1 容器"
-        ))
-    }
-
-    private func simulateHUD() {
-        coordinator.showTemporaryHUD(IslandActivity(
-            id: "demo.hud",
-            kind: .systemHUD,
-            title: "音量 50%",
-            detail: "3 秒后恢复此前状态"
-        ), duration: .seconds(3))
     }
 
     private func handleIslandTap() {

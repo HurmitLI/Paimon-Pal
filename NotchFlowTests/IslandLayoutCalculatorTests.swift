@@ -11,6 +11,14 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         mode: .physicalNotch
     )
 
+    @MainActor
+    func testBundledPetAssetsProvideInitialSleepingFrame() {
+        let pet = NotchPetController()
+
+        XCTAssertTrue(pet.hasRenderableFrame, pet.lastError ?? "宠物首帧未加载")
+        XCTAssertEqual(pet.stage, .sleeping)
+    }
+
     func testExpandedPhysicalIslandStaysInsideCompactTopBand() {
         let metrics = IslandLayoutCalculator.metrics(for: .expanded, geometry: notchedScreen)
         XCTAssertEqual(metrics.size.width, notchedScreen.notchRect!.width + 152)

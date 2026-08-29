@@ -106,13 +106,6 @@ final class ActivityCoordinator: ObservableObject {
         stateBeforeFileReceiving = nil
     }
 
-    func clearAllActivities() {
-        activities.removeAll()
-        queuedHUD = nil
-        dismissTask?.cancel()
-        state = .silent
-    }
-
     private var highestActivity: IslandActivity? {
         orderedActivities.first
     }

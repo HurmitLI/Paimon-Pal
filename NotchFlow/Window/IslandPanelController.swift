@@ -106,6 +106,7 @@ final class IslandPanelController {
             systemStatus: systemStatus,
             timer: timer,
             preferences: preferences,
+            screenService: screenService,
             onOpenUtilityWindow: { [weak self] section in self?.openUtilityWindow(section) },
             onOpenSettings: { [weak self] in self?.onOpenSettings?() }
         )

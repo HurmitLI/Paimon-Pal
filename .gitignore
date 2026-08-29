@@ -2,6 +2,8 @@
 DerivedData/
 .build/
 build/
+dist/
+PrivatePetAssets/
+*.profraw
 *.xcuserstate
 xcuserdata/
-

@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: IslandPanelController?
+    private var petPanelController: NotchPetPanelController?
     private var musicController: MusicController?
     private var fileShelfController: FileShelfController?
     private var systemStatusController: SystemStatusController?
@@ -52,6 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences: preferences,
             onOpenSettings: { [weak settingsWindow] in settingsWindow?.show() }
         )
+        let petController = NotchPetPanelController(
+            coordinator: coordinator,
+            screenService: screenService,
+            preferences: preferences
+        )
 
         let statusItem = StatusItemController(preferences: preferences)
         statusItem.onOpenSettings = { [weak settingsWindow] in settingsWindow?.show() }
@@ -66,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.islandIsExpanded = { [weak controller] in controller?.isExpanded ?? false }
 
         panelController = controller
+        petPanelController = petController
         musicController = music
         fileShelfController = fileShelf
         systemStatusController = systemStatus
@@ -153,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if preferences.isPaused, let pauseUntil = preferences.pauseUntil {
             statusItemController?.setVisible(true)
             panelController?.hide()
+            petPanelController?.hide()
 
             let delay = max(0, pauseUntil.timeIntervalSinceNow)
             pauseExpiryTask = Task { @MainActor [weak self] in
@@ -162,6 +170,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } else {
             panelController?.show()
+            if preferences.hasCompletedOnboarding {
+                petPanelController?.show()
+            } else {
+                petPanelController?.hide()
+            }
         }
         statusItemController?.refreshMenu()
     }
