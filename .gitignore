@@ -4,6 +4,7 @@ DerivedData/
 build/
 dist/
 PrivatePetAssets/
+PrivateModelAssets/
 *.profraw
 *.xcuserstate
 xcuserdata/
