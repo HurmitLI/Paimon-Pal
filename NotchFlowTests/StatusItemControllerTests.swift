@@ -4,11 +4,11 @@ import XCTest
 
 @MainActor
 final class StatusItemControllerTests: XCTestCase {
-    func testMenuBarUsesBundledPaimonTemplateImage() throws {
+    func testMenuBarUsesBundledPaimonColorImage() throws {
         let image = try XCTUnwrap(StatusItemController.menuBarImage())
 
         XCTAssertEqual(image.size, NSSize(width: 18, height: 18))
-        XCTAssertTrue(image.isTemplate)
+        XCTAssertFalse(image.isTemplate)
         XCTAssertEqual(image.accessibilityDescription, "Paimon Pal")
     }
 

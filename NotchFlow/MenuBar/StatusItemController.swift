@@ -58,7 +58,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return nil
         }
         image.size = NSSize(width: 18, height: 18)
-        image.isTemplate = true
+        // 彩色头像需要保留金色光环、白发和蓝紫眼睛；Template 模式会把它
+        // 强制染成单色，重新变成用户已经否决的抽象符号。
+        image.isTemplate = false
         image.accessibilityDescription = "Paimon Pal"
         return image
     }
