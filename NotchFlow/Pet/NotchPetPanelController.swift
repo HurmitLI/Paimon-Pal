@@ -165,7 +165,7 @@ final class NotchPetPanelController {
 
         pet.$stage
             .removeDuplicates()
-            .sink { [weak self] _ in self?.reconcilePointerLocation() }
+            .sink { [weak self] _ in self?.reconcileVisibility() }
             .store(in: &cancellables)
     }
 

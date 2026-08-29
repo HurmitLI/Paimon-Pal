@@ -62,6 +62,7 @@
 		A20000000000000000000036 /* notchflow-model-probe in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003A /* notchflow-model-probe */; };
 		A20000000000000000000037 /* mlx.metallib in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003B /* mlx.metallib */; };
 		A20000000000000000000038 /* Qwen3-1.7B-4bit in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003C /* Qwen3-1.7B-4bit */; };
+		A20000000000000000000039 /* PetToolRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003D /* PetToolRouterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -135,6 +136,7 @@
 		B2000000000000000000003A /* notchflow-model-probe */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = "notchflow-model-probe"; sourceTree = "<group>"; };
 		B2000000000000000000003B /* mlx.metallib */ = {isa = PBXFileReference; lastKnownFileType = file; path = mlx.metallib; sourceTree = "<group>"; };
 		B2000000000000000000003C /* Qwen3-1.7B-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Qwen3-1.7B-4bit"; sourceTree = "<group>"; };
+		B2000000000000000000003D /* PetToolRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetToolRouterTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -181,7 +183,7 @@
 		920000000000000000000005 /* Screen */ = {isa = PBXGroup; children = (B20000000000000000000006,); path = Screen; sourceTree = "<group>"; };
 		920000000000000000000006 /* Window */ = {isa = PBXGroup; children = (B20000000000000000000007, B20000000000000000000008, B20000000000000000000011,); path = Window; sourceTree = "<group>"; };
 		920000000000000000000007 /* UI */ = {isa = PBXGroup; children = (B20000000000000000000009, B20000000000000000000015, B2000000000000000000001A, B2000000000000000000001F, B20000000000000000000024,); path = UI; sourceTree = "<group>"; };
-		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B,); path = NotchFlowTests; sourceTree = "<group>"; };
+		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D,); path = NotchFlowTests; sourceTree = "<group>"; };
 		920000000000000000000009 /* Frameworks */ = {isa = PBXGroup; children = (B2000000000000000000000E,); name = Frameworks; sourceTree = "<group>"; };
 		92000000000000000000000A /* Products */ = {isa = PBXGroup; children = (B2000000000000000000000F, B20000000000000000000010,); name = Products; sourceTree = "<group>"; };
 		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D,); path = Resources; sourceTree = "<group>"; };
@@ -296,7 +298,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027,); runOnlyForDeploymentPostprocessing = 0; };
+		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027, A20000000000000000000039,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

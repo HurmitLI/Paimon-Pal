@@ -4,9 +4,11 @@ import Foundation
 @MainActor
 final class LocalPetModelController {
     private let petPanel: NotchPetPanelController
+    private let timer: TimerController
 
-    init(petPanel: NotchPetPanelController) {
+    init(petPanel: NotchPetPanelController, timer: TimerController) {
         self.petPanel = petPanel
+        self.timer = timer
     }
 
     func showConversationPrompt() {
@@ -37,21 +39,42 @@ final class LocalPetModelController {
         }
 
         petPanel.beginModelSpeaking()
+        if let command = PetToolRouter.command(from: prompt) {
+            let reply = execute(command)
+            presentReply(reply)
+            // 工具已经给出了真实的系统反馈。关闭回复后立即让出刘海区域，
+            // 避免派蒙成功动画继续遮住计时器等持续活动。
+            petPanel.endModelInteraction()
+            return
+        }
+
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let reply = try await LocalModelRunner.respond(to: prompt)
-                let result = NSAlert()
-                result.messageText = "派蒙"
-                result.informativeText = reply
-                result.addButton(withTitle: "知道啦")
-                result.runModal()
+                presentReply(reply)
                 petPanel.finishModelInteractionSuccessfully()
             } catch {
                 petPanel.endModelInteraction()
                 presentError(error.localizedDescription)
             }
         }
+    }
+
+    private func execute(_ command: PetToolCommand) -> String {
+        switch command {
+        case .startTimer(let seconds):
+            timer.begin(seconds: seconds)
+            return "好哒，已经开始计时 \(TimerTextFormatter.duration(seconds: seconds))。"
+        }
+    }
+
+    private func presentReply(_ reply: String) {
+        let result = NSAlert()
+        result.messageText = "派蒙"
+        result.informativeText = reply
+        result.addButton(withTitle: "知道啦")
+        result.runModal()
     }
 
     private func presentError(_ message: String) {
@@ -61,6 +84,46 @@ final class LocalPetModelController {
         alert.informativeText = message
         alert.addButton(withTitle: "好")
         alert.runModal()
+    }
+}
+
+enum PetToolCommand: Equatable {
+    case startTimer(seconds: Int)
+}
+
+enum PetToolRouter {
+    static func command(from input: String) -> PetToolCommand? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let timerKeywords = ["计时", "倒计时", "提醒我"]
+        guard timerKeywords.contains(where: text.contains) else { return nil }
+
+        let pattern = #"(\d{1,5})\s*(个?小时|分钟|分|秒)"#
+        guard let expression = try? NSRegularExpression(pattern: pattern),
+              let match = expression.firstMatch(
+                in: text,
+                range: NSRange(text.startIndex..., in: text)
+              ),
+              let amountRange = Range(match.range(at: 1), in: text),
+              let unitRange = Range(match.range(at: 2), in: text),
+              let amount = Int(text[amountRange])
+        else { return nil }
+
+        let unit = String(text[unitRange])
+        let multiplier: Int
+        switch unit {
+        case "小时", "个小时":
+            multiplier = 3_600
+        case "分钟", "分":
+            multiplier = 60
+        case "秒":
+            multiplier = 1
+        default:
+            return nil
+        }
+
+        let (seconds, overflow) = amount.multipliedReportingOverflow(by: multiplier)
+        guard !overflow, (1...359_999).contains(seconds) else { return nil }
+        return .startTimer(seconds: seconds)
     }
 }
 
