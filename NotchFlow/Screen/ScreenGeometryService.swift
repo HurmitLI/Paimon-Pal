@@ -77,6 +77,7 @@ struct IslandScreenGeometry: Equatable {
 struct IslandLayoutMetrics: Equatable {
     let size: CGSize
     let topOffset: CGFloat
+    let horizontalOffset: CGFloat
     let cornerRadius: CGFloat
 }
 
@@ -126,6 +127,20 @@ enum IslandLayoutCalculator {
                 height: baseSize.height
             )
         let topOffset: CGFloat = physical ? 0 : min(max(externalTopOffset, 0), 40)
+        let horizontalOffset: CGFloat
+        if physical {
+            switch presentation {
+            case .compact, .hoverPreview, .expanded, .fileReceiving:
+                // macOS 会把状态图标和 iPhone 实时活动放在刘海右侧。
+                // 活动岛向左多借 12pt，给右侧菜单栏内容留出安全区；
+                // 各状态仍完整覆盖物理刘海，且紧凑态与悬停态保持同一位置。
+                horizontalOffset = -12
+            case .silent, .temporaryHUD:
+                horizontalOffset = 0
+            }
+        } else {
+            horizontalOffset = 0
+        }
         let radius: CGFloat
         switch presentation {
         case .silent, .compact: radius = physical ? 17 : size.height / 2
@@ -133,12 +148,17 @@ enum IslandLayoutCalculator {
         case .hoverPreview: radius = physical ? 17 : size.height / 2
         case .expanded: radius = physical ? 18 : size.height / 2
         }
-        return IslandLayoutMetrics(size: size, topOffset: topOffset, cornerRadius: radius)
+        return IslandLayoutMetrics(
+            size: size,
+            topOffset: topOffset,
+            horizontalOffset: horizontalOffset,
+            cornerRadius: radius
+        )
     }
 
     static func frame(for metrics: IslandLayoutMetrics, on screen: IslandScreenGeometry) -> CGRect {
         CGRect(
-            x: screen.frame.midX - metrics.size.width / 2,
+            x: screen.frame.midX - metrics.size.width / 2 + metrics.horizontalOffset,
             y: screen.frame.maxY - metrics.topOffset - metrics.size.height,
             width: metrics.size.width,
             height: metrics.size.height

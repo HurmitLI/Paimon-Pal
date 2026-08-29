@@ -428,8 +428,57 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         let hover = IslandLayoutCalculator.metrics(for: .hoverPreview, geometry: notchedScreen)
 
         XCTAssertEqual(hover.size, compact.size)
+        XCTAssertEqual(hover.horizontalOffset, compact.horizontalOffset)
         XCTAssertEqual(hover.cornerRadius, compact.cornerRadius)
         XCTAssertEqual(hover.size.height, notchedScreen.notchRect!.height + 7)
+    }
+
+    func testPhysicalActivityStatesLeaveRightMenuBarSafetySpace() {
+        for presentation in [
+            IslandPresentation.compact,
+            .hoverPreview,
+            .expanded,
+            .fileReceiving
+        ] {
+            let metrics = IslandLayoutCalculator.metrics(
+                for: presentation,
+                geometry: notchedScreen
+            )
+            let frame = IslandLayoutCalculator.frame(for: metrics, on: notchedScreen)
+            let centeredRightEdge = notchedScreen.frame.midX + metrics.size.width / 2
+
+            XCTAssertEqual(metrics.horizontalOffset, -12)
+            XCTAssertEqual(frame.maxX, centeredRightEdge - 12)
+            XCTAssertTrue(frame.contains(notchedScreen.notchRect!))
+        }
+
+        XCTAssertEqual(
+            IslandLayoutCalculator.metrics(for: .silent, geometry: notchedScreen)
+                .horizontalOffset,
+            0
+        )
+        XCTAssertEqual(
+            IslandLayoutCalculator.metrics(for: .temporaryHUD, geometry: notchedScreen)
+                .horizontalOffset,
+            0
+        )
+    }
+
+    func testFloatingCapsuleRemainsCentered() {
+        let external = IslandScreenGeometry(
+            screenID: "external",
+            screenName: "External",
+            frame: CGRect(x: 100, y: 40, width: 1_920, height: 1_080),
+            notchRect: nil,
+            mode: .floatingCapsule
+        )
+
+        for presentation in IslandPresentation.allCases {
+            let metrics = IslandLayoutCalculator.metrics(for: presentation, geometry: external)
+            let frame = IslandLayoutCalculator.frame(for: metrics, on: external)
+            XCTAssertEqual(metrics.horizontalOffset, 0)
+            XCTAssertEqual(frame.midX, external.frame.midX)
+        }
     }
 
     func testEveryPhysicalIslandStateUsesTheSameNonBlockingHeight() {
