@@ -62,16 +62,23 @@ final class AppleMusicAdapter: MusicPlaybackProviding {
     }
 
     func send(_ command: MusicCommand) -> Result<Void, MusicServiceError> {
-        let action: String
+        let script: String
         switch command {
-        case .play: action = "play"
-        case .pause: action = "pause"
-        case .playPause: action = "playpause"
-        case .next: action = "next track"
-        case .previous: action = "previous track"
+        case .play: script = "tell application \"Music\" to play"
+        case .pause: script = "tell application \"Music\" to pause"
+        case .playPause: script = "tell application \"Music\" to playpause"
+        case .next: script = "tell application \"Music\" to next track"
+        case .previous: script = Self.previousTrackScript
         }
-        return executeVoid(script: "tell application \"Music\" to \(action)")
+        return executeVoid(script: script)
     }
+
+    static let previousTrackScript = """
+    tell application "Music"
+        set player position to 0
+        previous track
+    end tell
+    """
 
     func seek(to position: TimeInterval) -> Result<Void, MusicServiceError> {
         guard position.isFinite else {

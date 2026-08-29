@@ -2,6 +2,13 @@ import XCTest
 @testable import NotchFlow
 
 final class MusicSnapshotParserTests: XCTestCase {
+    @MainActor
+    func testPreviousTrackScriptForcesRealPreviousSongInsteadOfRestartingCurrentSong() {
+        let script = AppleMusicAdapter.previousTrackScript
+        XCTAssertTrue(script.contains("set player position to 0"))
+        XCTAssertTrue(script.contains("previous track"))
+    }
+
     func testParserBuildsPlayingSnapshot() throws {
         let snapshot = try XCTUnwrap(MusicSnapshotParser.parse(
             ["playing", "Song", "Artist", "Album", "240", "60", "ABC"],
