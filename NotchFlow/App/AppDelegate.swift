@@ -60,6 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences: preferences
         )
         let localPetModel = LocalPetModelController(petPanel: petController)
+        petController.onPetClicked = { [weak localPetModel] in
+            localPetModel?.showConversationPrompt()
+        }
 
         let statusItem = StatusItemController(preferences: preferences)
         statusItem.onOpenSettings = { [weak settingsWindow] in settingsWindow?.show() }

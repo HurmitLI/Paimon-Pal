@@ -18,6 +18,8 @@ final class NotchPetPanelController {
     private var retreatTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
 
+    var onPetClicked: (() -> Void)?
+
     init(
         coordinator: ActivityCoordinator,
         screenService: ScreenGeometryService,
@@ -184,7 +186,11 @@ final class NotchPetPanelController {
             else { return event }
 
             retreatTask?.cancel()
-            pet.reactToClick()
+            if let onPetClicked {
+                onPetClicked()
+            } else {
+                pet.reactToClick()
+            }
             return nil
         }
     }
