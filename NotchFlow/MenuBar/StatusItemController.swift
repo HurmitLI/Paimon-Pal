@@ -10,6 +10,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var onQuit: (() -> Void)?
     var islandIsExpanded: (() -> Bool)?
 #if DEBUG
+    var onTestLocalModelConversation: (() -> Void)?
     var onTogglePetListening: (() -> Void)?
     var petIsListening: (() -> Bool)?
     var onTogglePetSpeaking: (() -> Void)?
@@ -69,6 +70,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(toggle)
 
 #if DEBUG
+        let localModelConversation = actionItem(
+            "测试内置模型对话…",
+            action: #selector(testLocalModelConversation),
+            key: ""
+        )
+        localModelConversation.isEnabled = !preferences.isPaused
+        menu.addItem(localModelConversation)
+
         let listeningTitle = petIsListening?() == true
             ? "结束派蒙聆听测试"
             : "测试派蒙聆听"
@@ -125,6 +134,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func resume() { onResume?() }
     @objc private func quit() { onQuit?() }
 #if DEBUG
+    @objc private func testLocalModelConversation() { onTestLocalModelConversation?() }
     @objc private func togglePetListening() { onTogglePetListening?() }
     @objc private func togglePetSpeaking() { onTogglePetSpeaking?() }
     @objc private func testPetSuccess() { onTestPetSuccess?() }

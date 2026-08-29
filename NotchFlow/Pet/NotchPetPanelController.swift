@@ -91,6 +91,31 @@ final class NotchPetPanelController {
         reconcileVisibility()
     }
 
+    func beginModelListening() {
+        retreatTask?.cancel()
+        pet.startListening()
+        reconcileVisibility()
+    }
+
+    func beginModelSpeaking() {
+        retreatTask?.cancel()
+        pet.startSpeaking()
+        reconcileVisibility()
+    }
+
+    func endModelInteraction() {
+        retreatTask?.cancel()
+        pet.stopListening()
+        pet.stopSpeaking()
+        reconcileVisibility()
+    }
+
+    func finishModelInteractionSuccessfully() {
+        retreatTask?.cancel()
+        pet.celebrateSuccess()
+        reconcileVisibility()
+    }
+
     private func configurePanel() {
         panel.isFloatingPanel = true
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)

@@ -5,6 +5,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: IslandPanelController?
     private var petPanelController: NotchPetPanelController?
+    private var localPetModelController: LocalPetModelController?
     private var musicController: MusicController?
     private var fileShelfController: FileShelfController?
     private var systemStatusController: SystemStatusController?
@@ -58,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenService: screenService,
             preferences: preferences
         )
+        let localPetModel = LocalPetModelController(petPanel: petController)
 
         let statusItem = StatusItemController(preferences: preferences)
         statusItem.onOpenSettings = { [weak settingsWindow] in settingsWindow?.show() }
@@ -71,6 +73,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onQuit = { NSApp.terminate(nil) }
         statusItem.islandIsExpanded = { [weak controller] in controller?.isExpanded ?? false }
 #if DEBUG
+        statusItem.onTestLocalModelConversation = { [weak localPetModel] in
+            localPetModel?.showConversationPrompt()
+        }
         statusItem.onTogglePetListening = { [weak petController, weak statusItem] in
             petController?.toggleListeningForTesting()
             statusItem?.refreshMenu()
@@ -92,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         panelController = controller
         petPanelController = petController
+        localPetModelController = localPetModel
         musicController = music
         fileShelfController = fileShelf
         systemStatusController = systemStatus
