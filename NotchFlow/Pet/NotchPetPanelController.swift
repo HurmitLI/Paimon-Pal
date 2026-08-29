@@ -12,7 +12,9 @@ final class NotchPetPanelController {
     private let pet: NotchPetController
     private let panel: IslandPanel
     private var runtimeRequestedVisible = false
-    private var mouseMonitor: Any?
+    private var globalMouseMoveMonitor: Any?
+    private var localMouseMoveMonitor: Any?
+    private var localMouseDownMonitor: Any?
     private var retreatTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -65,7 +67,7 @@ final class NotchPetPanelController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.animationBehavior = .none
         panel.isMovable = false
-        // 基础阶段只响应全局悬停，点击继续交给下方应用，避免透明区域挡住操作。
+        // 默认穿透鼠标；只有指针真正位于待机宠物身上时才临时接收点击。
         panel.ignoresMouseEvents = true
     }
 
@@ -99,11 +101,32 @@ final class NotchPetPanelController {
         preferences.$fullScreenBehavior
             .sink { [weak self] _ in self?.reconcileVisibility() }
             .store(in: &cancellables)
+
+        pet.$stage
+            .removeDuplicates()
+            .sink { [weak self] _ in self?.reconcilePointerLocation() }
+            .store(in: &cancellables)
     }
 
     private func installPointerMonitor() {
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) {
+        globalMouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) {
             [weak self] _ in self?.reconcilePointerLocation()
+        }
+        localMouseMoveMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) {
+            [weak self] event in
+            self?.reconcilePointerLocation()
+            return event
+        }
+        localMouseDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
+            [weak self] event in
+            guard let self, event.window === panel,
+                  pet.stage == .idle,
+                  petHitFrame.contains(NSEvent.mouseLocation)
+            else { return event }
+
+            retreatTask?.cancel()
+            pet.reactToClick()
+            return nil
         }
     }
 
@@ -137,6 +160,7 @@ final class NotchPetPanelController {
 
     private func hidePanel(reason: String) {
         retreatTask?.cancel()
+        panel.ignoresMouseEvents = true
         pet.resetToSleep()
         panel.orderOut(nil)
     }
@@ -173,9 +197,13 @@ final class NotchPetPanelController {
 
     private func reconcilePointerLocation() {
         guard panel.isVisible, let geometry = currentPhysicalNotchGeometry,
-              let notchRect = geometry.notchRect else { return }
+              let notchRect = geometry.notchRect else {
+            panel.ignoresMouseEvents = true
+            return
+        }
 
         let pointer = NSEvent.mouseLocation
+        panel.ignoresMouseEvents = !(pet.stage == .idle && petHitFrame.contains(pointer))
         let petInteractionFrame = panel.frame.insetBy(dx: 18, dy: 10)
         if notchRect.contains(pointer) || (pet.isAwake && petInteractionFrame.contains(pointer)) {
             retreatTask?.cancel()
@@ -183,6 +211,10 @@ final class NotchPetPanelController {
         } else if pet.isAwake {
             scheduleReturnToSleep()
         }
+    }
+
+    private var petHitFrame: CGRect {
+        panel.frame.insetBy(dx: 24, dy: 12)
     }
 
     private func scheduleReturnToSleep() {

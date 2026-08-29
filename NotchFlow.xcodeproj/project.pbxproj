@@ -54,6 +54,7 @@
 		A2000000000000000000002E /* peek-to-emerge-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000032 /* peek-to-emerge-transparent-v1.png */; };
 		A2000000000000000000002F /* notch-idle-loop-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000033 /* notch-idle-loop-transparent-v1.png */; };
 		A20000000000000000000030 /* return-to-sleep-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000034 /* return-to-sleep-transparent-v1.png */; };
+		A20000000000000000000031 /* click-reaction-transparent-v1.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000035 /* click-reaction-transparent-v1.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -119,6 +120,7 @@
 		B20000000000000000000032 /* peek-to-emerge-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "peek-to-emerge-transparent-v1.png"; sourceTree = "<group>"; };
 		B20000000000000000000033 /* notch-idle-loop-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "notch-idle-loop-transparent-v1.png"; sourceTree = "<group>"; };
 		B20000000000000000000034 /* return-to-sleep-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "return-to-sleep-transparent-v1.png"; sourceTree = "<group>"; };
+		B20000000000000000000035 /* click-reaction-transparent-v1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "click-reaction-transparent-v1.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -174,7 +176,7 @@
 		920000000000000000000010 /* Settings */ = {isa = PBXGroup; children = (B20000000000000000000026, B20000000000000000000027, B20000000000000000000028, B2000000000000000000002C,); path = Settings; sourceTree = "<group>"; };
 		920000000000000000000011 /* MenuBar */ = {isa = PBXGroup; children = (B20000000000000000000029,); path = MenuBar; sourceTree = "<group>"; };
 		920000000000000000000012 /* Pet */ = {isa = PBXGroup; children = (B2000000000000000000002D, B2000000000000000000002E, B2000000000000000000002F, B20000000000000000000030,); path = Pet; sourceTree = "<group>"; };
-		920000000000000000000013 /* PrivatePetAssets */ = {isa = PBXGroup; children = (B20000000000000000000031, B20000000000000000000032, B20000000000000000000033, B20000000000000000000034,); path = PrivatePetAssets/Paimon/AnimationDrafts; sourceTree = "<group>"; };
+		920000000000000000000013 /* PrivatePetAssets */ = {isa = PBXGroup; children = (B20000000000000000000031, B20000000000000000000032, B20000000000000000000033, B20000000000000000000034, B20000000000000000000035,); path = PrivatePetAssets/Paimon/AnimationDrafts; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -228,7 +230,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		D23000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000002D, A2000000000000000000002E, A2000000000000000000002F, A20000000000000000000030,); runOnlyForDeploymentPostprocessing = 0; };
+		D23000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000002D, A2000000000000000000002E, A2000000000000000000002F, A20000000000000000000030, A20000000000000000000031,); runOnlyForDeploymentPostprocessing = 0; };
 		D23000000000000000000002 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
