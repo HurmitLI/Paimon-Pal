@@ -33,6 +33,18 @@ enum FullScreenBehavior: String, CaseIterable, Identifiable {
     }
 }
 
+struct PetDesktopPlacement: Codable, Equatable {
+    let screenID: String
+    let normalizedX: Double
+    let normalizedY: Double
+
+    var isValid: Bool {
+        !screenID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            normalizedX.isFinite && normalizedY.isFinite &&
+            (0...1).contains(normalizedX) && (0...1).contains(normalizedY)
+    }
+}
+
 @MainActor
 final class AppPreferences: ObservableObject {
     private enum Key {
@@ -47,6 +59,7 @@ final class AppPreferences: ObservableObject {
         static let fullScreenBehavior = "settings.display.fullScreenBehavior"
         static let externalDisplayTopOffset = "settings.display.externalTopOffset"
         static let floatingCapsuleWidthAdjustment = "settings.display.floatingCapsuleWidthAdjustment"
+        static let petDesktopPlacement = "settings.pet.desktopPlacement"
         static let onboardingCompleted = "settings.onboarding.completed"
     }
 
@@ -102,6 +115,7 @@ final class AppPreferences: ObservableObject {
     }
     @Published private(set) var pauseUntil: Date?
     @Published private(set) var hasCompletedOnboarding: Bool
+    @Published private(set) var petDesktopPlacement: PetDesktopPlacement?
 
     private let defaults: UserDefaults
     private let now: () -> Date
@@ -134,6 +148,9 @@ final class AppPreferences: ObservableObject {
             defaults.object(forKey: Key.floatingCapsuleWidthAdjustment) as? Double ?? 0
         )
         hasCompletedOnboarding = defaults.object(forKey: Key.onboardingCompleted) as? Bool ?? false
+        petDesktopPlacement = (defaults.data(forKey: Key.petDesktopPlacement))
+            .flatMap { try? JSONDecoder().decode(PetDesktopPlacement.self, from: $0) }
+            .flatMap { $0.isValid ? $0 : nil }
 
         if let storedDate = defaults.object(forKey: Key.pauseUntil) as? Date,
            storedDate > now() {
@@ -186,6 +203,18 @@ final class AppPreferences: ObservableObject {
         defaults.removeObject(forKey: Key.onboardingCompleted)
     }
 
+    func savePetDesktopPlacement(_ placement: PetDesktopPlacement) {
+        guard placement.isValid,
+              let data = try? JSONEncoder().encode(placement) else { return }
+        petDesktopPlacement = placement
+        defaults.set(data, forKey: Key.petDesktopPlacement)
+    }
+
+    func clearPetDesktopPlacement() {
+        petDesktopPlacement = nil
+        defaults.removeObject(forKey: Key.petDesktopPlacement)
+    }
+
     private func pause(until date: Date) {
         menuBarIconVisible = true
         pauseUntil = date
@@ -217,6 +246,12 @@ final class AppPreferences: ObservableObject {
             defaults.set(specificDisplayID, forKey: Key.specificDisplayID)
         } else {
             defaults.removeObject(forKey: Key.specificDisplayID)
+        }
+        if let petDesktopPlacement,
+           let data = try? JSONEncoder().encode(petDesktopPlacement) {
+            defaults.set(data, forKey: Key.petDesktopPlacement)
+        } else {
+            defaults.removeObject(forKey: Key.petDesktopPlacement)
         }
     }
 

@@ -49,6 +49,10 @@ final class NotchPetController: ObservableObject {
         stage == .idle || stage == .listening
     }
 
+    var acceptsDesktopDrag: Bool {
+        stage == .idle
+    }
+
     var keepsVisibleWithoutPointer: Bool {
         stage == .listening || stage == .speaking || stage == .celebrating
     }

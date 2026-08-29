@@ -49,6 +49,7 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(preferences.fullScreenBehavior, .hidden)
         XCTAssertEqual(preferences.externalDisplayTopOffset, 6)
         XCTAssertEqual(preferences.floatingCapsuleWidthAdjustment, 0)
+        XCTAssertNil(preferences.petDesktopPlacement)
         XCTAssertFalse(preferences.isPaused)
         XCTAssertNil(preferences.pauseUntil)
     }
@@ -141,6 +142,34 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(restored.fullScreenBehavior, .importantOnly)
         XCTAssertEqual(restored.externalDisplayTopOffset, 18)
         XCTAssertEqual(restored.floatingCapsuleWidthAdjustment, 24)
+    }
+
+    func testPetDesktopPlacementPersistsAndCanReturnToNotch() {
+        let preferences = AppPreferences(defaults: defaults)
+        let placement = PetDesktopPlacement(
+            screenID: "built-in-display",
+            normalizedX: 0.25,
+            normalizedY: 0.7
+        )
+
+        preferences.savePetDesktopPlacement(placement)
+
+        XCTAssertEqual(preferences.petDesktopPlacement, placement)
+        XCTAssertEqual(AppPreferences(defaults: defaults).petDesktopPlacement, placement)
+
+        preferences.clearPetDesktopPlacement()
+
+        XCTAssertNil(preferences.petDesktopPlacement)
+        XCTAssertNil(AppPreferences(defaults: defaults).petDesktopPlacement)
+    }
+
+    func testMalformedPetDesktopPlacementIsRemovedOnLaunch() {
+        defaults.set(Data("not-json".utf8), forKey: "settings.pet.desktopPlacement")
+
+        let preferences = AppPreferences(defaults: defaults)
+
+        XCTAssertNil(preferences.petDesktopPlacement)
+        XCTAssertNil(defaults.object(forKey: "settings.pet.desktopPlacement"))
     }
 
     func testInvalidDisplaySettingsFallBackAndAdjustmentsAreBounded() {

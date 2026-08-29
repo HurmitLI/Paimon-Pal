@@ -50,12 +50,14 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertEqual(pet.stage, .listening)
         XCTAssertTrue(pet.keepsVisibleWithoutPointer)
         XCTAssertTrue(pet.acceptsConversationClick)
+        XCTAssertFalse(pet.acceptsDesktopDrag)
 
         pet.stopListening()
         await Task.yield()
         XCTAssertEqual(pet.stage, .idle)
         XCTAssertFalse(pet.keepsVisibleWithoutPointer)
         XCTAssertTrue(pet.acceptsConversationClick)
+        XCTAssertTrue(pet.acceptsDesktopDrag)
     }
 
     @MainActor
@@ -360,5 +362,46 @@ final class IslandLayoutCalculatorTests: XCTestCase {
             behavior: .alwaysShow,
             state: normal
         ))
+    }
+
+    func testPetDesktopPlacementRoundTripsAcrossVisibleFrame() {
+        let visibleFrame = CGRect(x: 100, y: 60, width: 1_200, height: 800)
+        let panelSize = CGSize(width: 180, height: 188)
+        let original = CGRect(x: 330, y: 310, width: panelSize.width, height: panelSize.height)
+
+        let placement = PetDesktopPlacementCalculator.placement(
+            for: original,
+            screenID: "display-1",
+            visibleFrame: visibleFrame
+        )
+        let restored = PetDesktopPlacementCalculator.frame(
+            for: placement,
+            panelSize: panelSize,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(placement.screenID, "display-1")
+        XCTAssertEqual(restored.minX, original.minX, accuracy: 0.001)
+        XCTAssertEqual(restored.minY, original.minY, accuracy: 0.001)
+    }
+
+    func testPetDesktopFrameStaysInsideVisibleScreen() {
+        let visibleFrame = CGRect(x: -1_920, y: 0, width: 1_920, height: 1_080)
+        let panelSize = CGSize(width: 180, height: 188)
+        let placement = PetDesktopPlacement(
+            screenID: "external",
+            normalizedX: 1,
+            normalizedY: 0
+        )
+
+        let frame = PetDesktopPlacementCalculator.frame(
+            for: placement,
+            panelSize: panelSize,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(frame.maxX, visibleFrame.maxX)
+        XCTAssertEqual(frame.minY, visibleFrame.minY)
+        XCTAssertTrue(visibleFrame.contains(frame))
     }
 }
