@@ -404,4 +404,77 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertEqual(frame.minY, visibleFrame.minY)
         XCTAssertTrue(visibleFrame.contains(frame))
     }
+
+    func testQuickPromptPrefersPetRightSideWhenSpaceAllows() {
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let petFrame = CGRect(x: 420, y: 320, width: 180, height: 188)
+        let panelSize = CGSize(width: 360, height: 66)
+
+        let frame = PetQuickPromptLayout.frame(
+            anchorFrame: petFrame,
+            panelSize: panelSize,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(frame.minX, petFrame.maxX + PetQuickPromptLayout.horizontalGap)
+        XCTAssertEqual(frame.midY, petFrame.midY, accuracy: 0.001)
+        XCTAssertTrue(visibleFrame.contains(frame))
+    }
+
+    func testQuickPromptMovesToPetLeftSideNearRightEdge() {
+        let visibleFrame = CGRect(x: 0, y: 0, width: 1_440, height: 900)
+        let petFrame = CGRect(x: 1_250, y: 320, width: 180, height: 188)
+        let panelSize = CGSize(width: 360, height: 154)
+
+        let frame = PetQuickPromptLayout.frame(
+            anchorFrame: petFrame,
+            panelSize: panelSize,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(frame.maxX, petFrame.minX - PetQuickPromptLayout.horizontalGap)
+        XCTAssertTrue(visibleFrame.contains(frame))
+    }
+
+    func testQuickPromptIsClampedInsideVerticalScreenBounds() {
+        let visibleFrame = CGRect(x: 100, y: 40, width: 1_200, height: 760)
+        let petFrame = CGRect(x: 500, y: 740, width: 180, height: 188)
+        let panelSize = CGSize(width: 360, height: 154)
+
+        let frame = PetQuickPromptLayout.frame(
+            anchorFrame: petFrame,
+            panelSize: panelSize,
+            visibleFrame: visibleFrame
+        )
+
+        XCTAssertEqual(frame.maxY, visibleFrame.maxY)
+        XCTAssertTrue(visibleFrame.contains(frame))
+    }
+
+    func testQuickPromptOnlyExpandsWhenFeedbackExists() {
+        XCTAssertEqual(
+            PetQuickPromptLayout.preferredSize(
+                isGenerating: false,
+                reply: nil,
+                errorMessage: nil
+            ).height,
+            66
+        )
+        XCTAssertEqual(
+            PetQuickPromptLayout.preferredSize(
+                isGenerating: true,
+                reply: nil,
+                errorMessage: nil
+            ).height,
+            154
+        )
+        XCTAssertEqual(
+            PetQuickPromptLayout.preferredSize(
+                isGenerating: false,
+                reply: "你好呀",
+                errorMessage: nil
+            ).height,
+            154
+        )
+    }
 }

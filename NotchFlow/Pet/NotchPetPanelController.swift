@@ -20,9 +20,24 @@ final class NotchPetPanelController {
     private var dragStartPanelOrigin: CGPoint?
     private var isDraggingPet = false
     private var isDetached: Bool
+    private var quickPromptAllowsDrag = false
     private var cancellables: Set<AnyCancellable> = []
 
     var onPetClicked: (() -> Void)?
+    var onPresentationFrameChanged: (() -> Void)?
+    var onPetDocked: (() -> Void)?
+
+    var presentationFrame: CGRect {
+        panel.frame
+    }
+
+    var presentationVisibleFrame: CGRect {
+        let center = CGPoint(x: panel.frame.midX, y: panel.frame.midY)
+        return screen(containing: center)?.visibleFrame
+            ?? panel.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? panel.frame
+    }
 
     init(
         coordinator: ActivityCoordinator,
@@ -99,18 +114,28 @@ final class NotchPetPanelController {
     }
 
     func beginModelListening() {
+        quickPromptAllowsDrag = false
+        retreatTask?.cancel()
+        pet.startListening()
+        reconcileVisibility()
+    }
+
+    func beginQuickPromptListening() {
+        quickPromptAllowsDrag = true
         retreatTask?.cancel()
         pet.startListening()
         reconcileVisibility()
     }
 
     func beginModelSpeaking() {
+        quickPromptAllowsDrag = false
         retreatTask?.cancel()
         pet.startSpeaking()
         reconcileVisibility()
     }
 
     func endModelInteraction() {
+        quickPromptAllowsDrag = false
         retreatTask?.cancel()
         pet.stopListening()
         pet.stopSpeaking()
@@ -118,6 +143,7 @@ final class NotchPetPanelController {
     }
 
     func finishModelInteractionSuccessfully() {
+        quickPromptAllowsDrag = false
         retreatTask?.cancel()
         pet.celebrateSuccess()
         reconcileVisibility()
@@ -237,6 +263,7 @@ final class NotchPetPanelController {
         // which appears as a white flash over a light desktop background.
         if panel.frame != targetFrame {
             panel.setFrame(targetFrame, display: false)
+            onPresentationFrameChanged?()
         }
         if !panel.isVisible {
             panel.orderFrontRegardless()
@@ -279,7 +306,7 @@ final class NotchPetPanelController {
 
         let pointer = NSEvent.mouseLocation
         panel.ignoresMouseEvents = !(
-            (pet.acceptsConversationClick || pet.acceptsDesktopDrag) &&
+            (pet.acceptsConversationClick || acceptsCurrentDesktopDrag) &&
                 petHitFrame.contains(pointer)
         )
         if isDetached {
@@ -306,14 +333,18 @@ final class NotchPetPanelController {
         panel.frame.insetBy(dx: 24, dy: 12)
     }
 
+    private var acceptsCurrentDesktopDrag: Bool {
+        pet.acceptsDesktopDrag || (quickPromptAllowsDrag && pet.isListening)
+    }
+
     private func handlePetMouseDown(_ event: NSEvent) {
         let pointer = NSEvent.mouseLocation
         guard petHitFrame.contains(pointer),
-              pet.acceptsConversationClick || pet.acceptsDesktopDrag else { return }
+              pet.acceptsConversationClick || acceptsCurrentDesktopDrag else { return }
 
         retreatTask?.cancel()
         pointerDownLocation = pointer
-        dragStartPanelOrigin = pet.acceptsDesktopDrag ? panel.frame.origin : nil
+        dragStartPanelOrigin = acceptsCurrentDesktopDrag ? panel.frame.origin : nil
         isDraggingPet = false
     }
 
@@ -343,6 +374,7 @@ final class NotchPetPanelController {
             inside: targetScreen?.visibleFrame ?? proposed
         )
         panel.setFrame(constrained, display: false)
+        onPresentationFrameChanged?()
     }
 
     private func handlePetMouseUp(_ event: NSEvent) {
@@ -383,7 +415,9 @@ final class NotchPetPanelController {
         isDetached = false
         preferences.clearPetDesktopPlacement()
         panel.setFrame(panelFrame(on: geometry), display: false)
-        pet.returnToSleep()
+        onPresentationFrameChanged?()
+        onPetDocked?()
+        pet.returnToSleepAfterDocking()
     }
 
     private func persistCurrentDesktopPlacement() {

@@ -77,6 +77,17 @@ final class NotchPetController: ObservableObject {
         }
     }
 
+    func returnToSleepAfterDocking() {
+        guard stage != .sleeping, stage != .returning else { return }
+        playbackTask?.cancel()
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            stage = .returning
+            guard await playOnce(.returnToSleep) else { return }
+            stage = .sleeping
+        }
+    }
+
     func reactToClick() {
         guard stage == .idle else { return }
         playbackTask?.cancel()

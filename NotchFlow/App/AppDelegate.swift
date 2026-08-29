@@ -71,7 +71,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         petController.onPetClicked = { [weak localPetModel] in
-            localPetModel?.showConversationPrompt()
+            localPetModel?.showQuickPrompt()
+        }
+        petController.onPresentationFrameChanged = { [weak localPetModel] in
+            localPetModel?.repositionQuickPrompt()
+        }
+        petController.onPetDocked = { [weak localPetModel] in
+            localPetModel?.closeQuickPrompt()
         }
 
         let statusItem = StatusItemController(preferences: preferences)

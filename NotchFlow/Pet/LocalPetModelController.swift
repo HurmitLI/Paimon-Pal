@@ -11,6 +11,8 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     ]
     @Published private(set) var isGenerating = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var quickReply: String?
+    @Published private(set) var quickPromptFocusRequest = UUID()
 
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
@@ -18,6 +20,8 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     private let onOpenUtilityWindow: (UtilitySection) -> Void
     private let onOpenSettings: () -> Void
     private var conversationWindow: NSWindow?
+    private var quickPromptWindow: PetQuickPromptPanel?
+    private var cancellables: Set<AnyCancellable> = []
 
     init(
         petPanel: NotchPetPanelController,
@@ -32,9 +36,31 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         self.onOpenUtilityWindow = onOpenUtilityWindow
         self.onOpenSettings = onOpenSettings
         super.init()
+
+        Publishers.CombineLatest3($isGenerating, $quickReply, $errorMessage)
+            .dropFirst()
+            .sink { [weak self] _ in self?.refreshQuickPromptFrame() }
+            .store(in: &cancellables)
+    }
+
+    func showQuickPrompt() {
+        conversationWindow?.orderOut(nil)
+        quickReply = nil
+        errorMessage = nil
+        quickPromptFocusRequest = UUID()
+
+        let window = quickPromptWindow ?? makeQuickPromptWindow()
+        quickPromptWindow = window
+        refreshQuickPromptFrame()
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        if !isGenerating {
+            petPanel.beginQuickPromptListening()
+        }
     }
 
     func showConversationPrompt() {
+        quickPromptWindow?.orderOut(nil)
         NSApp.activate(ignoringOtherApps: true)
         let window = conversationWindow ?? makeConversationWindow()
         conversationWindow = window
@@ -48,6 +74,22 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         }
     }
 
+    func closeQuickPrompt() {
+        quickPromptWindow?.orderOut(nil)
+        if !isGenerating {
+            petPanel.endModelInteraction()
+        }
+    }
+
+    func showFullConversationFromQuickPrompt() {
+        showConversationPrompt()
+    }
+
+    func repositionQuickPrompt() {
+        guard quickPromptWindow?.isVisible == true else { return }
+        refreshQuickPromptFrame()
+    }
+
     var canSend: Bool {
         !isGenerating && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -59,12 +101,14 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         let history = messages
         draft = ""
         errorMessage = nil
+        quickReply = nil
         messages.append(.init(role: .user, text: prompt))
         petPanel.beginModelSpeaking()
 
         if let command = PetToolRouter.command(from: prompt) {
             let reply = execute(command)
             messages.append(.init(role: .assistant, text: reply))
+            quickReply = reply
             // 工具已经给出了真实的系统反馈。关闭回复后立即让出刘海区域，
             // 避免派蒙成功动画继续遮住计时器等持续活动。
             petPanel.endModelInteraction()
@@ -76,6 +120,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             latestUserMessage: prompt
         ) {
             messages.append(.init(role: .assistant, text: reply))
+            quickReply = reply
             petPanel.finishModelInteractionSuccessfully()
             return
         }
@@ -90,6 +135,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             do {
                 let reply = try await LocalModelRunner.respond(to: contextualPrompt)
                 messages.append(.init(role: .assistant, text: reply))
+                quickReply = reply
                 isGenerating = false
                 petPanel.finishModelInteractionSuccessfully()
             } catch {
@@ -105,6 +151,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         messages = [
             .init(role: .assistant, text: "这一段已经清空啦。我们可以从现在重新聊。")
         ]
+        quickReply = nil
         errorMessage = nil
     }
 
@@ -164,6 +211,86 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         window.delegate = self
         window.contentView = NSHostingView(rootView: PetConversationView(controller: self))
         return window
+    }
+
+    private func makeQuickPromptWindow() -> PetQuickPromptPanel {
+        let window = PetQuickPromptPanel(
+            contentRect: .zero,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 3)
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        window.isFloatingPanel = true
+        window.hidesOnDeactivate = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.animationBehavior = .none
+        window.isMovable = false
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: PetQuickPromptView(controller: self))
+        return window
+    }
+
+    private func refreshQuickPromptFrame() {
+        guard let window = quickPromptWindow else { return }
+        let size = PetQuickPromptLayout.preferredSize(
+            isGenerating: isGenerating,
+            reply: quickReply,
+            errorMessage: errorMessage
+        )
+        let frame = PetQuickPromptLayout.frame(
+            anchorFrame: petPanel.presentationFrame,
+            panelSize: size,
+            visibleFrame: petPanel.presentationVisibleFrame
+        )
+        window.setFrame(frame, display: window.isVisible)
+    }
+}
+
+final class PetQuickPromptPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+enum PetQuickPromptLayout {
+    static let horizontalGap: CGFloat = 12
+
+    static func preferredSize(
+        isGenerating: Bool,
+        reply: String?,
+        errorMessage: String?
+    ) -> CGSize {
+        let hasFeedback = isGenerating || reply != nil || errorMessage != nil
+        return CGSize(width: 360, height: hasFeedback ? 154 : 66)
+    }
+
+    static func frame(
+        anchorFrame: CGRect,
+        panelSize: CGSize,
+        visibleFrame: CGRect
+    ) -> CGRect {
+        let rightX = anchorFrame.maxX + horizontalGap
+        let leftX = anchorFrame.minX - horizontalGap - panelSize.width
+        let fitsRight = rightX + panelSize.width <= visibleFrame.maxX
+        let fitsLeft = leftX >= visibleFrame.minX
+
+        let preferredX: CGFloat
+        if fitsRight || !fitsLeft {
+            preferredX = rightX
+        } else {
+            preferredX = leftX
+        }
+
+        let proposed = CGRect(
+            x: preferredX,
+            y: anchorFrame.midY - panelSize.height / 2,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+        return PetDesktopPlacementCalculator.constrainedFrame(proposed, inside: visibleFrame)
     }
 }
 
@@ -241,6 +368,112 @@ enum PetConversationContextBuilder {
         【用户最新一句】
         \(latestUserMessage)
         """
+    }
+}
+
+private struct PetQuickPromptView: View {
+    @ObservedObject var controller: LocalPetModelController
+    @FocusState private var inputIsFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if controller.isGenerating {
+                feedbackCard {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("派蒙正在想……")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+            } else if let reply = controller.quickReply {
+                feedbackCard {
+                    Text(reply)
+                        .font(.callout)
+                        .lineLimit(4)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else if let error = controller.errorMessage {
+                feedbackCard {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button(action: controller.showFullConversationFromQuickPrompt) {
+                    Image(systemName: "text.bubble")
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("打开完整对话")
+                .accessibilityLabel("打开完整对话")
+
+                TextField("问派蒙一句……", text: $controller.draft)
+                    .textFieldStyle(.plain)
+                    .font(.body)
+                    .focused($inputIsFocused)
+                    .onSubmit { controller.sendDraft() }
+
+                Button(action: controller.sendDraft) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(controller.canSend ? Color.accentColor : .secondary)
+                .disabled(!controller.canSend)
+                .accessibilityLabel("发送")
+
+                Button(action: controller.closeQuickPrompt) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.body)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .keyboardShortcut(.cancelAction)
+                .accessibilityLabel("关闭")
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 46)
+            .background(
+                Color(nsColor: .controlBackgroundColor).opacity(0.88),
+                in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+            )
+        }
+        .padding(8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.22), radius: 12, y: 5)
+        .onAppear { requestFocus() }
+        .onChange(of: controller.quickPromptFocusRequest) { requestFocus() }
+    }
+
+    private func feedbackCard<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+            .background(
+                Color(nsColor: .windowBackgroundColor).opacity(0.94),
+                in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+            )
+    }
+
+    private func requestFocus() {
+        DispatchQueue.main.async {
+            inputIsFocused = true
+        }
     }
 }
 
