@@ -181,7 +181,7 @@ final class NotchPetPanelController {
         localMouseDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
             [weak self] event in
             guard let self, event.window === panel,
-                  pet.stage == .idle,
+                  pet.acceptsConversationClick,
                   petHitFrame.contains(NSEvent.mouseLocation)
             else { return event }
 
@@ -279,7 +279,9 @@ final class NotchPetPanelController {
         }
 
         let pointer = NSEvent.mouseLocation
-        panel.ignoresMouseEvents = !(pet.stage == .idle && petHitFrame.contains(pointer))
+        panel.ignoresMouseEvents = !(
+            pet.acceptsConversationClick && petHitFrame.contains(pointer)
+        )
         if pet.keepsVisibleWithoutPointer {
             retreatTask?.cancel()
             return

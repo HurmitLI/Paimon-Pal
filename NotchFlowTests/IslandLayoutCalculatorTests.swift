@@ -49,11 +49,13 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         await Task.yield()
         XCTAssertEqual(pet.stage, .listening)
         XCTAssertTrue(pet.keepsVisibleWithoutPointer)
+        XCTAssertTrue(pet.acceptsConversationClick)
 
         pet.stopListening()
         await Task.yield()
         XCTAssertEqual(pet.stage, .idle)
         XCTAssertFalse(pet.keepsVisibleWithoutPointer)
+        XCTAssertTrue(pet.acceptsConversationClick)
     }
 
     @MainActor
@@ -64,6 +66,7 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         await Task.yield()
         XCTAssertEqual(pet.stage, .speaking)
         XCTAssertTrue(pet.keepsVisibleWithoutPointer)
+        XCTAssertFalse(pet.acceptsConversationClick)
 
         pet.stopSpeaking()
         await Task.yield()

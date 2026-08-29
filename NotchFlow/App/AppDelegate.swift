@@ -106,6 +106,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onTestPetSuccess = { [weak petController] in
             petController?.celebrateSuccessForTesting()
         }
+        if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_CONVERSATION_AUTOSHOW"] == "1" {
+            DispatchQueue.main.async {
+                localPetModel.showConversationPrompt()
+            }
+        }
 #endif
 
         panelController = controller

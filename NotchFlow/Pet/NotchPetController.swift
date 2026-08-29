@@ -45,6 +45,10 @@ final class NotchPetController: ObservableObject {
         stage == .speaking
     }
 
+    var acceptsConversationClick: Bool {
+        stage == .idle || stage == .listening
+    }
+
     var keepsVisibleWithoutPointer: Bool {
         stage == .listening || stage == .speaking || stage == .celebrating
     }

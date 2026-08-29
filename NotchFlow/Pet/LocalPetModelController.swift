@@ -1,13 +1,23 @@
 import AppKit
+import Combine
 import Foundation
+import SwiftUI
 
 @MainActor
-final class LocalPetModelController {
+final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegate {
+    @Published var draft = ""
+    @Published private(set) var messages: [PetConversationMessage] = [
+        .init(role: .assistant, text: "嗨，我就在刘海旁边。想说什么都可以，我会陪你聊一会儿。")
+    ]
+    @Published private(set) var isGenerating = false
+    @Published private(set) var errorMessage: String?
+
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
     private let preferences: AppPreferences
     private let onOpenUtilityWindow: (UtilitySection) -> Void
     private let onOpenSettings: () -> Void
+    private var conversationWindow: NSWindow?
 
     init(
         petPanel: NotchPetPanelController,
@@ -21,56 +31,85 @@ final class LocalPetModelController {
         self.preferences = preferences
         self.onOpenUtilityWindow = onOpenUtilityWindow
         self.onOpenSettings = onOpenSettings
+        super.init()
     }
 
     func showConversationPrompt() {
         NSApp.activate(ignoringOtherApps: true)
-        petPanel.beginModelListening()
-
-        let input = NSTextField(string: "")
-        input.placeholderString = "例如：我今天有点累，你能陪陪我吗？"
-        input.frame = NSRect(x: 0, y: 0, width: 360, height: 24)
-
-        let alert = NSAlert()
-        alert.messageText = "和派蒙聊一句"
-        alert.informativeText = "回复由 Mac 内置的本地模型生成，不会上传到网络。"
-        alert.accessoryView = input
-        alert.addButton(withTitle: "发送")
-        alert.addButton(withTitle: "取消")
-
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            petPanel.endModelInteraction()
-            return
+        let window = conversationWindow ?? makeConversationWindow()
+        conversationWindow = window
+        window.center()
+        if window.isMiniaturized {
+            window.deminiaturize(nil)
         }
-
-        let prompt = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else {
-            petPanel.endModelInteraction()
-            presentError("请先输入一句话。")
-            return
+        window.makeKeyAndOrderFront(nil)
+        if !isGenerating {
+            petPanel.beginModelListening()
         }
+    }
 
+    var canSend: Bool {
+        !isGenerating && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func sendDraft() {
+        let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isGenerating, !prompt.isEmpty else { return }
+
+        let history = messages
+        draft = ""
+        errorMessage = nil
+        messages.append(.init(role: .user, text: prompt))
         petPanel.beginModelSpeaking()
+
         if let command = PetToolRouter.command(from: prompt) {
             let reply = execute(command)
-            presentReply(reply)
+            messages.append(.init(role: .assistant, text: reply))
             // 工具已经给出了真实的系统反馈。关闭回复后立即让出刘海区域，
             // 避免派蒙成功动画继续遮住计时器等持续活动。
             petPanel.endModelInteraction()
             return
         }
 
+        if let reply = PetConversationRecallResolver.reply(
+            history: history,
+            latestUserMessage: prompt
+        ) {
+            messages.append(.init(role: .assistant, text: reply))
+            petPanel.finishModelInteractionSuccessfully()
+            return
+        }
+
+        isGenerating = true
+        let contextualPrompt = PetConversationContextBuilder.prompt(
+            history: history,
+            latestUserMessage: prompt
+        )
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                let reply = try await LocalModelRunner.respond(to: prompt)
-                presentReply(reply)
+                let reply = try await LocalModelRunner.respond(to: contextualPrompt)
+                messages.append(.init(role: .assistant, text: reply))
+                isGenerating = false
                 petPanel.finishModelInteractionSuccessfully()
             } catch {
+                isGenerating = false
                 petPanel.endModelInteraction()
-                presentError(error.localizedDescription)
+                errorMessage = error.localizedDescription
             }
         }
+    }
+
+    func clearConversation() {
+        guard !isGenerating else { return }
+        messages = [
+            .init(role: .assistant, text: "这一段已经清空啦。我们可以从现在重新聊。")
+        ]
+        errorMessage = nil
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        petPanel.endModelInteraction()
     }
 
     private func execute(_ command: PetToolCommand) -> String {
@@ -112,21 +151,233 @@ final class LocalPetModelController {
         return "好哒，已经打开 NotchFlow \(title)窗口。"
     }
 
-    private func presentReply(_ reply: String) {
-        let result = NSAlert()
-        result.messageText = "派蒙"
-        result.informativeText = reply
-        result.addButton(withTitle: "知道啦")
-        result.runModal()
+    private func makeConversationWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 430, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "派蒙 · 本地陪伴"
+        window.minSize = NSSize(width: 380, height: 420)
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.contentView = NSHostingView(rootView: PetConversationView(controller: self))
+        return window
+    }
+}
+
+enum PetConversationRole: String, Equatable {
+    case user
+    case assistant
+}
+
+struct PetConversationMessage: Identifiable, Equatable {
+    let id: UUID
+    let role: PetConversationRole
+    let text: String
+
+    init(id: UUID = UUID(), role: PetConversationRole, text: String) {
+        self.id = id
+        self.role = role
+        self.text = text
+    }
+}
+
+enum PetConversationRecallResolver {
+    static func reply(
+        history: [PetConversationMessage],
+        latestUserMessage: String
+    ) -> String? {
+        let normalized = latestUserMessage
+            .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        let recallPatterns = [
+            #"我(?:刚才|刚刚|之前|前面).*说.*(?:什么|怎么)"#,
+            #"还记得我.*说"#
+        ]
+        guard recallPatterns.contains(where: {
+            normalized.range(of: $0, options: .regularExpression) != nil
+        }) else {
+            return nil
+        }
+
+        guard let previousUserMessage = history.last(where: { $0.role == .user }) else {
+            return "这段对话已经清空啦，我现在没有可以回看的内容。"
+        }
+        let recalledText = previousUserMessage.text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(160)
+        return "你刚才说“\(recalledText)”呀。"
+    }
+}
+
+enum PetConversationContextBuilder {
+    private static let maximumHistoryMessages = 6
+    private static let maximumCharactersPerMessage = 320
+
+    static func prompt(
+        history: [PetConversationMessage],
+        latestUserMessage: String
+    ) -> String {
+        let recentHistory = history
+            .suffix(maximumHistoryMessages)
+            .map { message in
+                let speaker = message.role == .user ? "用户" : "派蒙"
+                let normalized = message.text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .prefix(maximumCharactersPerMessage)
+                return "\(speaker)：\(normalized)"
+            }
+            .joined(separator: "\n")
+
+        guard !recentHistory.isEmpty else { return latestUserMessage }
+        return """
+        【任务】只回答“用户最新一句”。回答前必须先阅读“最近对话记录”，并自然承接其中的信息。
+        【上下文规则】如果用户询问自己刚才说过什么、之前发生了什么，必须从记录中找到对应内容并直接准确回答；不得猜测、回避，也不得说用户讲错了。只有记录里确实没有答案时，才说明不记得。
+        【表达规则】通常不要机械复述整段记录，但用户明确询问前文时，可以准确复述相关内容。
+
+        【最近对话记录】
+        \(recentHistory)
+        【用户最新一句】
+        \(latestUserMessage)
+        """
+    }
+}
+
+private struct PetConversationView: View {
+    @ObservedObject var controller: LocalPetModelController
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            transcript
+            Divider()
+            composer
+        }
+        .frame(minWidth: 380, minHeight: 420)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    private func presentError(_ message: String) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "本地模型暂时无法回复"
-        alert.informativeText = message
-        alert.addButton(withTitle: "好")
-        alert.runModal()
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.cyan)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("派蒙")
+                    .font(.headline)
+                Text("住在刘海旁的本地小伙伴")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Label("仅本机", systemImage: "lock.fill")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+    }
+
+    private var transcript: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(controller.messages) { message in
+                        messageBubble(message)
+                            .id(message.id)
+                    }
+                    if controller.isGenerating {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("派蒙正在想……")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .id("generating")
+                    }
+                    if let error = controller.errorMessage {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(18)
+            }
+            .onChange(of: controller.messages.count) {
+                scrollToLatest(using: proxy)
+            }
+            .onChange(of: controller.isGenerating) {
+                scrollToLatest(using: proxy)
+            }
+        }
+    }
+
+    private var composer: some View {
+        VStack(spacing: 10) {
+            HStack(alignment: .bottom, spacing: 10) {
+                TextField(
+                    "说点什么，例如：我今天有点累",
+                    text: $controller.draft,
+                    axis: .vertical
+                )
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...4)
+                .onSubmit { controller.sendDraft() }
+
+                Button(action: controller.sendDraft) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(controller.canSend ? Color.accentColor : .secondary)
+                .disabled(!controller.canSend)
+                .accessibilityLabel("发送")
+            }
+
+            HStack {
+                Text("最多携带最近 6 条消息；关闭应用后不会保留。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("清空本次对话", action: controller.clearConversation)
+                    .font(.caption)
+                    .disabled(controller.isGenerating)
+            }
+        }
+        .padding(14)
+    }
+
+    private func messageBubble(_ message: PetConversationMessage) -> some View {
+        HStack {
+            if message.role == .user { Spacer(minLength: 54) }
+            Text(message.text)
+                .font(.body)
+                .textSelection(.enabled)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .foregroundStyle(message.role == .user ? Color.white : Color.primary)
+                .background(
+                    message.role == .user ? Color.accentColor : Color(nsColor: .controlBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+            if message.role == .assistant { Spacer(minLength: 54) }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func scrollToLatest(using proxy: ScrollViewProxy) {
+        let target: AnyHashable? = controller.isGenerating
+            ? AnyHashable("generating")
+            : controller.messages.last.map { AnyHashable($0.id) }
+        guard let target else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            proxy.scrollTo(target, anchor: .bottom)
+        }
     }
 }
 

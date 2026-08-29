@@ -36,4 +36,82 @@ final class PetToolRouterTests: XCTestCase {
         XCTAssertNil(PetToolRouter.command(from: "帮我打开一个文件"))
         XCTAssertNil(PetToolRouter.command(from: "查看今天的状态"))
     }
+
+    func testConversationContextUsesDirectPromptWithoutHistory() {
+        XCTAssertEqual(
+            PetConversationContextBuilder.prompt(
+                history: [],
+                latestUserMessage: "今天有点累"
+            ),
+            "今天有点累"
+        )
+    }
+
+    func testConversationContextKeepsOnlyTheLatestSixMessages() {
+        let history = (1...8).map { index in
+            PetConversationMessage(
+                role: index.isMultiple(of: 2) ? .assistant : .user,
+                text: "消息\(index)"
+            )
+        }
+
+        let prompt = PetConversationContextBuilder.prompt(
+            history: history,
+            latestUserMessage: "接着说"
+        )
+
+        XCTAssertFalse(prompt.contains("消息1"))
+        XCTAssertFalse(prompt.contains("消息2"))
+        XCTAssertTrue(prompt.contains("用户：消息3"))
+        XCTAssertTrue(prompt.contains("派蒙：消息8"))
+        XCTAssertTrue(prompt.contains("【用户最新一句】\n接着说"))
+        XCTAssertTrue(prompt.contains("必须从记录中找到对应内容并直接准确回答"))
+    }
+
+    func testConversationContextAllowsExactRecallWhenUserAsksAboutHistory() {
+        let prompt = PetConversationContextBuilder.prompt(
+            history: [
+                PetConversationMessage(role: .user, text: "我今天有点累"),
+                PetConversationMessage(role: .assistant, text: "那就先休息一下吧。")
+            ],
+            latestUserMessage: "我刚才说什么了？"
+        )
+
+        XCTAssertTrue(prompt.contains("用户：我今天有点累"))
+        XCTAssertTrue(prompt.contains("用户明确询问前文时，可以准确复述相关内容"))
+        XCTAssertTrue(prompt.hasSuffix("我刚才说什么了？"))
+    }
+
+    func testRecallResolverUsesLatestUserMessageInsteadOfModelGuessing() {
+        let reply = PetConversationRecallResolver.reply(
+            history: [
+                PetConversationMessage(role: .assistant, text: "我们重新聊。"),
+                PetConversationMessage(role: .user, text: "我今天有点累"),
+                PetConversationMessage(role: .assistant, text: "先休息一下吧。")
+            ],
+            latestUserMessage: "我刚才说什么了？"
+        )
+
+        XCTAssertEqual(reply, "你刚才说“我今天有点累”呀。")
+    }
+
+    func testRecallResolverRefusesToInventMemoryAfterConversationIsCleared() {
+        let reply = PetConversationRecallResolver.reply(
+            history: [
+                PetConversationMessage(role: .assistant, text: "这一段已经清空啦。")
+            ],
+            latestUserMessage: "我刚才说自己怎么了？"
+        )
+
+        XCTAssertEqual(reply, "这段对话已经清空啦，我现在没有可以回看的内容。")
+    }
+
+    func testRecallResolverDoesNotInterceptOrdinaryConversation() {
+        XCTAssertNil(
+            PetConversationRecallResolver.reply(
+                history: [],
+                latestUserMessage: "我今天有点累"
+            )
+        )
+    }
 }
