@@ -63,6 +63,7 @@
 		A20000000000000000000037 /* mlx.metallib in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003B /* mlx.metallib */; };
 		A20000000000000000000038 /* Qwen3-1.7B-4bit in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003C /* Qwen3-1.7B-4bit */; };
 		A20000000000000000000039 /* PetToolRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003D /* PetToolRouterTests.swift */; };
+		A2000000000000000000003A /* NotchFlow.icns in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003E /* NotchFlow.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -137,6 +138,7 @@
 		B2000000000000000000003B /* mlx.metallib */ = {isa = PBXFileReference; lastKnownFileType = file; path = mlx.metallib; sourceTree = "<group>"; };
 		B2000000000000000000003C /* Qwen3-1.7B-4bit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Qwen3-1.7B-4bit"; sourceTree = "<group>"; };
 		B2000000000000000000003D /* PetToolRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetToolRouterTests.swift; sourceTree = "<group>"; };
+		B2000000000000000000003E /* NotchFlow.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NotchFlow.icns; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -186,7 +188,7 @@
 		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D,); path = NotchFlowTests; sourceTree = "<group>"; };
 		920000000000000000000009 /* Frameworks */ = {isa = PBXGroup; children = (B2000000000000000000000E,); name = Frameworks; sourceTree = "<group>"; };
 		92000000000000000000000A /* Products */ = {isa = PBXGroup; children = (B2000000000000000000000F, B20000000000000000000010,); name = Products; sourceTree = "<group>"; };
-		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D,); path = Resources; sourceTree = "<group>"; };
+		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D, B2000000000000000000003E,); path = Resources; sourceTree = "<group>"; };
 		92000000000000000000000C /* Music */ = {isa = PBXGroup; children = (B20000000000000000000012, B20000000000000000000013, B20000000000000000000014,); path = Music; sourceTree = "<group>"; };
 		92000000000000000000000D /* FileShelf */ = {isa = PBXGroup; children = (B20000000000000000000017, B20000000000000000000018, B20000000000000000000019,); path = FileShelf; sourceTree = "<group>"; };
 		92000000000000000000000E /* SystemStatus */ = {isa = PBXGroup; children = (B2000000000000000000001C, B2000000000000000000001D, B2000000000000000000001E,); path = SystemStatus; sourceTree = "<group>"; };
@@ -250,7 +252,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		D23000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000002D, A2000000000000000000002E, A2000000000000000000002F, A20000000000000000000030, A20000000000000000000031, A20000000000000000000032, A20000000000000000000033, A20000000000000000000034, A20000000000000000000036, A20000000000000000000037, A20000000000000000000038,); runOnlyForDeploymentPostprocessing = 0; };
+		D23000000000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000002D, A2000000000000000000002E, A2000000000000000000002F, A20000000000000000000030, A20000000000000000000031, A20000000000000000000032, A20000000000000000000033, A20000000000000000000034, A20000000000000000000036, A20000000000000000000037, A20000000000000000000038, A2000000000000000000003A,); runOnlyForDeploymentPostprocessing = 0; };
 		D23000000000000000000002 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
@@ -313,7 +315,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -333,7 +335,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
