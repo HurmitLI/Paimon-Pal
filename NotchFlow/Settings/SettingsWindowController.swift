@@ -199,6 +199,7 @@ private struct SettingsRootView: View {
                 binding: $preferences.timerEnabled
             )
             petVoiceSettings
+            continuousVoiceSettings
         }
     }
 
@@ -221,6 +222,34 @@ private struct SettingsRootView: View {
                 Spacer(minLength: 8)
                 Button("停止播放") {
                     NotificationCenter.default.post(name: .paimonStopVoiceRequested, object: nil)
+                }
+            }
+            .padding(8)
+        }
+    }
+
+    private var continuousVoiceSettings: some View {
+        GroupBox {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "mic.and.signal.meter.fill")
+                    .font(.title3)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("AI 对话实验模式")
+                        .font(.headline)
+                    Text("派蒙会在本机轮流执行收音、语音识别、4B 回复和语音朗读；朗读期间会暂停麦克风，避免听见自己。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("必须手动开启，最多 12 轮或 10 分钟；不保存原始录音，关闭应用后不会自动恢复。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Button("开启或停止") {
+                    NotificationCenter.default.post(
+                        name: .paimonToggleContinuousVoiceRequested,
+                        object: nil
+                    )
                 }
             }
             .padding(8)

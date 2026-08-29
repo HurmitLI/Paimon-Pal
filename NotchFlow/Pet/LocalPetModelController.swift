@@ -139,11 +139,35 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
 
     func sendDraft() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !isGenerating, !prompt.isEmpty else { return }
+        draft = ""
+        submit(prompt: prompt)
+    }
+
+    func sendVoicePrompt(
+        _ source: String,
+        onPlaybackStarted: @escaping () -> Void,
+        onFinished: @escaping () -> Void
+    ) {
+        let prompt = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        submit(
+            prompt: prompt,
+            onPlaybackStarted: onPlaybackStarted,
+            onFinished: onFinished
+        )
+    }
+
+    private func submit(
+        prompt: String,
+        onPlaybackStarted: (() -> Void)? = nil,
+        onFinished: (() -> Void)? = nil
+    ) {
+        guard !isGenerating, !prompt.isEmpty else {
+            onFinished?()
+            return
+        }
 
         speech.stop(notifyCompletion: false)
         let history = messages
-        draft = ""
         errorMessage = nil
         quickReply = nil
         messages.append(.init(role: .user, text: prompt))
@@ -156,7 +180,12 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             // 工具已经给出了真实的系统反馈。关闭回复后立即让出刘海区域，
             // 避免派蒙成功动画继续遮住计时器等持续活动。
             petPanel.endModelInteraction()
-            speak(reply, completion: .yieldToIsland)
+            speak(
+                reply,
+                completion: .yieldToIsland,
+                externalPlaybackStarted: onPlaybackStarted,
+                externalFinished: onFinished
+            )
             return
         }
 
@@ -166,7 +195,12 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         ) {
             messages.append(.init(role: .assistant, text: reply))
             quickReply = reply
-            speak(reply, completion: .celebrate)
+            speak(
+                reply,
+                completion: .celebrate,
+                externalPlaybackStarted: onPlaybackStarted,
+                externalFinished: onFinished
+            )
             return
         }
 
@@ -175,7 +209,12 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         ) {
             messages.append(.init(role: .assistant, text: reply))
             quickReply = reply
-            speak(reply, completion: .celebrate)
+            speak(
+                reply,
+                completion: .celebrate,
+                externalPlaybackStarted: onPlaybackStarted,
+                externalFinished: onFinished
+            )
             return
         }
 
@@ -191,11 +230,17 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
                 messages.append(.init(role: .assistant, text: reply))
                 quickReply = reply
                 isGenerating = false
-                speak(reply, completion: .celebrate)
+                speak(
+                    reply,
+                    completion: .celebrate,
+                    externalPlaybackStarted: onPlaybackStarted,
+                    externalFinished: onFinished
+                )
             } catch {
                 isGenerating = false
                 petPanel.endModelInteraction()
                 errorMessage = error.localizedDescription
+                onFinished?()
             }
         }
     }
@@ -224,11 +269,17 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         case yieldToIsland
     }
 
-    private func speak(_ reply: String, completion: SpeechCompletion) {
+    private func speak(
+        _ reply: String,
+        completion: SpeechCompletion,
+        externalPlaybackStarted: (() -> Void)? = nil,
+        externalFinished: (() -> Void)? = nil
+    ) {
         let scheduled = speech.speak(
             reply,
             onPlaybackStarted: { [weak self] in
                 self?.petPanel.beginModelSpeaking()
+                externalPlaybackStarted?()
             },
             onFinished: { [weak self] in
                 guard let self else { return }
@@ -238,6 +289,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
                 case .yieldToIsland:
                     petPanel.endModelInteraction()
                 }
+                externalFinished?()
             }
         )
         guard !scheduled else { return }
@@ -247,6 +299,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         case .yieldToIsland:
             petPanel.endModelInteraction()
         }
+        externalFinished?()
     }
 
     private func speakTimerFinishedReminder() {

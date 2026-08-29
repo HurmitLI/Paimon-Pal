@@ -66,6 +66,8 @@
 		A2000000000000000000003A /* NotchFlow.icns in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003E /* NotchFlow.icns */; };
 		A2000000000000000000003B /* PetSpeechController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000003F /* PetSpeechController.swift */; };
 		A2000000000000000000003C /* PetSpeechControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000040 /* PetSpeechControllerTests.swift */; };
+		A2000000000000000000003D /* PetContinuousVoiceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000041 /* PetContinuousVoiceController.swift */; };
+		A2000000000000000000003E /* PetContinuousVoiceControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000042 /* PetContinuousVoiceControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -143,6 +145,8 @@
 		B2000000000000000000003E /* NotchFlow.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NotchFlow.icns; sourceTree = "<group>"; };
 		B2000000000000000000003F /* PetSpeechController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetSpeechController.swift; sourceTree = "<group>"; };
 		B20000000000000000000040 /* PetSpeechControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetSpeechControllerTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000041 /* PetContinuousVoiceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetContinuousVoiceController.swift; sourceTree = "<group>"; };
+		B20000000000000000000042 /* PetContinuousVoiceControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetContinuousVoiceControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,7 +193,7 @@
 		920000000000000000000005 /* Screen */ = {isa = PBXGroup; children = (B20000000000000000000006,); path = Screen; sourceTree = "<group>"; };
 		920000000000000000000006 /* Window */ = {isa = PBXGroup; children = (B20000000000000000000007, B20000000000000000000008, B20000000000000000000011,); path = Window; sourceTree = "<group>"; };
 		920000000000000000000007 /* UI */ = {isa = PBXGroup; children = (B20000000000000000000009, B20000000000000000000015, B2000000000000000000001A, B2000000000000000000001F, B20000000000000000000024,); path = UI; sourceTree = "<group>"; };
-		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D, B20000000000000000000040,); path = NotchFlowTests; sourceTree = "<group>"; };
+		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D, B20000000000000000000040, B20000000000000000000042,); path = NotchFlowTests; sourceTree = "<group>"; };
 		920000000000000000000009 /* Frameworks */ = {isa = PBXGroup; children = (B2000000000000000000000E,); name = Frameworks; sourceTree = "<group>"; };
 		92000000000000000000000A /* Products */ = {isa = PBXGroup; children = (B2000000000000000000000F, B20000000000000000000010,); name = Products; sourceTree = "<group>"; };
 		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D, B2000000000000000000003E,); path = Resources; sourceTree = "<group>"; };
@@ -199,7 +203,7 @@
 		92000000000000000000000F /* Timer */ = {isa = PBXGroup; children = (B20000000000000000000021, B20000000000000000000022, B20000000000000000000023,); path = Timer; sourceTree = "<group>"; };
 		920000000000000000000010 /* Settings */ = {isa = PBXGroup; children = (B20000000000000000000026, B20000000000000000000027, B20000000000000000000028, B2000000000000000000002C,); path = Settings; sourceTree = "<group>"; };
 		920000000000000000000011 /* MenuBar */ = {isa = PBXGroup; children = (B20000000000000000000029,); path = MenuBar; sourceTree = "<group>"; };
-		920000000000000000000012 /* Pet */ = {isa = PBXGroup; children = (B2000000000000000000002D, B2000000000000000000002E, B2000000000000000000002F, B20000000000000000000030, B20000000000000000000039, B2000000000000000000003F,); path = Pet; sourceTree = "<group>"; };
+		920000000000000000000012 /* Pet */ = {isa = PBXGroup; children = (B2000000000000000000002D, B2000000000000000000002E, B2000000000000000000002F, B20000000000000000000030, B20000000000000000000039, B2000000000000000000003F, B20000000000000000000041,); path = Pet; sourceTree = "<group>"; };
 		920000000000000000000013 /* PrivatePetAssets */ = {isa = PBXGroup; children = (B20000000000000000000031, B20000000000000000000032, B20000000000000000000033, B20000000000000000000034, B20000000000000000000035, B20000000000000000000036, B20000000000000000000037, B20000000000000000000038,); path = PrivatePetAssets/Paimon/AnimationDrafts; sourceTree = "<group>"; };
 		920000000000000000000014 /* LocalModelRuntime */ = {isa = PBXGroup; children = (B2000000000000000000003A, B2000000000000000000003B,); path = Tools/LocalModelProbe/.build/arm64-apple-macosx/release; sourceTree = "<group>"; };
 		920000000000000000000015 /* PrivateModelAssets */ = {isa = PBXGroup; children = (B2000000000000000000003C,); path = PrivateModelAssets; sourceTree = "<group>"; };
@@ -302,10 +306,11 @@
 				A2000000000000000000002B,
 				A2000000000000000000002C,
 				A20000000000000000000035,
+				A2000000000000000000003D,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027, A20000000000000000000039, A2000000000000000000003C,); runOnlyForDeploymentPostprocessing = 0; };
+		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027, A20000000000000000000039, A2000000000000000000003C, A2000000000000000000003E,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -320,7 +325,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -340,7 +345,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = NotchFlow/Resources/NotchFlow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: IslandPanelController?
     private var petPanelController: NotchPetPanelController?
     private var localPetModelController: LocalPetModelController?
+    private var continuousVoiceController: PetContinuousVoiceController?
     private var musicController: MusicController?
     private var fileShelfController: FileShelfController?
     private var systemStatusController: SystemStatusController?
@@ -79,6 +80,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsWindow?.show()
             }
         )
+        let continuousVoice = PetContinuousVoiceController()
+        continuousVoice.onTranscriptCommitted = { [weak continuousVoice, weak localPetModel] transcript in
+            guard let continuousVoice, let localPetModel else { return }
+            continuousVoice.markProcessing()
+            localPetModel.sendVoicePrompt(
+                transcript,
+                onPlaybackStarted: { [weak continuousVoice] in
+                    continuousVoice?.markSpeaking()
+                },
+                onFinished: { [weak continuousVoice] in
+                    continuousVoice?.resumeAfterReply()
+                }
+            )
+        }
+        continuousVoice.onFailure = { [weak self] message in
+            self?.showContinuousVoiceError(message)
+        }
         petController.onPetClicked = { [weak localPetModel] in
             localPetModel?.showQuickPrompt()
         }
@@ -94,6 +112,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onToggleIsland = { [weak self] in
             self?.panelController?.toggleExpanded()
             self?.statusItemController?.refreshMenu()
+        }
+        statusItem.onToggleContinuousVoice = { [weak self] in
+            self?.toggleContinuousVoiceMode()
+        }
+        statusItem.continuousVoicePhase = { [weak continuousVoice] in
+            continuousVoice?.phase ?? .idle
         }
         statusItem.onPauseOneHour = { [weak preferences] in preferences?.pauseForOneHour() }
         statusItem.onPauseUntilTomorrow = { [weak preferences] in preferences?.pauseUntilTomorrow() }
@@ -159,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController = controller
         petPanelController = petController
         localPetModelController = localPetModel
+        continuousVoiceController = continuousVoice
         musicController = music
         fileShelfController = fileShelf
         systemStatusController = systemStatus
@@ -167,6 +192,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindowController = settingsWindow
         onboardingWindowController = onboardingWindow
         statusItemController = statusItem
+
+        continuousVoice.$phase
+            .removeDuplicates()
+            .sink { [weak petController, weak statusItem] phase in
+                statusItem?.refreshMenu()
+                switch phase {
+                case .listening, .processing, .requestingPermission:
+                    petController?.beginModelListening()
+                case .speaking:
+                    petController?.beginModelSpeaking()
+                case .idle, .failed:
+                    petController?.endModelInteraction()
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .paimonToggleContinuousVoiceRequested)
+            .sink { [weak self] _ in
+                self?.toggleContinuousVoiceMode()
+            }
+            .store(in: &cancellables)
+
+        preferences.$petVoiceEnabled
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak continuousVoice] enabled in
+                if !enabled { continuousVoice?.stop() }
+            }
+            .store(in: &cancellables)
 
         observePreferences(preferences)
         applyRuntimeConfiguration()
@@ -184,11 +238,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        continuousVoiceController?.stop()
         localPetModelController?.stopSpeech()
     }
 
     func openSettings() {
         settingsWindowController?.show()
+    }
+
+    private func toggleContinuousVoiceMode() {
+        guard let continuousVoiceController, let preferences else { return }
+        if continuousVoiceController.phase.isActive {
+            continuousVoiceController.stop()
+            localPetModelController?.stopSpeech()
+        } else {
+            preferences.petVoiceEnabled = true
+            continuousVoiceController.start()
+        }
+    }
+
+    private func showContinuousVoiceError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "AI 对话实验模式已停止"
+        alert.informativeText = message
+        alert.addButton(withTitle: "知道了")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     private func observePreferences(_ preferences: AppPreferences) {
@@ -248,6 +324,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if preferences.isPaused, let pauseUntil = preferences.pauseUntil {
+            continuousVoiceController?.stop()
+            localPetModelController?.stopSpeech()
             statusItemController?.setVisible(true)
             panelController?.hide()
             petPanelController?.hide()

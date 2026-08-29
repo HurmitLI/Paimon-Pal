@@ -13,11 +13,13 @@ final class StatusItemControllerTests: XCTestCase {
         }
         var didOpenSettings = false
         var didToggleIsland = false
+        var didToggleContinuousVoice = false
         var didToggleListening = false
         var didToggleSpeaking = false
         var didTestSuccess = false
         controller.onOpenSettings = { didOpenSettings = true }
         controller.onToggleIsland = { didToggleIsland = true }
+        controller.onToggleContinuousVoice = { didToggleContinuousVoice = true }
 #if DEBUG
         controller.onTogglePetListening = { didToggleListening = true }
         controller.onTogglePetSpeaking = { didToggleSpeaking = true }
@@ -31,6 +33,7 @@ final class StatusItemControllerTests: XCTestCase {
         XCTAssertNotNil(menu.item(withTitle: "暂停至明天"))
         send(menu.item(withTitle: "打开设置…"))
         send(menu.item(withTitle: "展开刘海"))
+        send(menu.item(withTitle: "开启 AI 对话实验模式"))
 #if DEBUG
         send(menu.item(withTitle: "测试派蒙聆听"))
         send(menu.item(withTitle: "测试派蒙说话"))
@@ -38,11 +41,28 @@ final class StatusItemControllerTests: XCTestCase {
 #endif
         XCTAssertTrue(didOpenSettings)
         XCTAssertTrue(didToggleIsland)
+        XCTAssertTrue(didToggleContinuousVoice)
 #if DEBUG
         XCTAssertTrue(didToggleListening)
         XCTAssertTrue(didToggleSpeaking)
         XCTAssertTrue(didTestSuccess)
 #endif
+    }
+
+    func testContinuousVoiceMenuShowsLivePhaseAndStopAction() {
+        let (preferences, suiteName) = makePreferences()
+        let controller = StatusItemController(preferences: preferences)
+        defer {
+            controller.setVisible(false)
+            UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        }
+        controller.continuousVoicePhase = { .listening }
+
+        let menu = NSMenu()
+        controller.menuNeedsUpdate(menu)
+
+        XCTAssertNotNil(menu.item(withTitle: "停止 AI 对话实验模式"))
+        XCTAssertNotNil(menu.item(withTitle: "语音状态：正在听"))
     }
 
     func testPausedMenuKeepsRecoveryAndDisablesIslandToggle() {

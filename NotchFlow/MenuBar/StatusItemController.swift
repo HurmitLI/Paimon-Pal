@@ -9,6 +9,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var onResume: (() -> Void)?
     var onQuit: (() -> Void)?
     var islandIsExpanded: (() -> Bool)?
+    var onToggleContinuousVoice: (() -> Void)?
+    var continuousVoicePhase: (() -> PetContinuousVoicePhase)?
 #if DEBUG
     var onTestLocalModelConversation: (() -> Void)?
     var onTogglePetListening: (() -> Void)?
@@ -68,6 +70,27 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let toggle = actionItem(toggleTitle, action: #selector(toggleIsland), key: "")
         toggle.isEnabled = !preferences.isPaused
         menu.addItem(toggle)
+
+        let voicePhase = continuousVoicePhase?() ?? .idle
+        let voiceTitle = voicePhase.isActive
+            ? "停止 AI 对话实验模式"
+            : "开启 AI 对话实验模式"
+        let continuousVoice = actionItem(
+            voiceTitle,
+            action: #selector(toggleContinuousVoice),
+            key: ""
+        )
+        continuousVoice.isEnabled = !preferences.isPaused || voicePhase.isActive
+        menu.addItem(continuousVoice)
+        if voicePhase != .idle {
+            let phaseStatus = NSMenuItem(
+                title: "语音状态：\(voicePhase.displayName)",
+                action: nil,
+                keyEquivalent: ""
+            )
+            phaseStatus.isEnabled = false
+            menu.addItem(phaseStatus)
+        }
 
 #if DEBUG
         let localModelConversation = actionItem(
@@ -129,6 +152,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() { onOpenSettings?() }
     @objc private func toggleIsland() { onToggleIsland?() }
+    @objc private func toggleContinuousVoice() { onToggleContinuousVoice?() }
     @objc private func pauseOneHour() { onPauseOneHour?() }
     @objc private func pauseUntilTomorrow() { onPauseUntilTomorrow?() }
     @objc private func resume() { onResume?() }
