@@ -35,7 +35,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if visible, statusItem == nil {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
             if let button = item.button {
-                button.image = NSImage(systemSymbolName: "capsule", accessibilityDescription: "Paimon Pal")
+                button.image = Self.menuBarImage()
+                    ?? NSImage(
+                        systemSymbolName: "person.crop.circle",
+                        accessibilityDescription: "Paimon Pal"
+                    )
                 button.toolTip = "Paimon Pal（PP）"
             }
             item.menu = menu
@@ -44,6 +48,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             NSStatusBar.system.removeStatusItem(statusItem)
             self.statusItem = nil
         }
+    }
+
+    static func menuBarImage(bundle: Bundle = .main) -> NSImage? {
+        guard let url = bundle.url(
+            forResource: "PaimonMenuBarIconTemplate",
+            withExtension: "png"
+        ), let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        image.accessibilityDescription = "Paimon Pal"
+        return image
     }
 
     func refreshMenu() {
