@@ -3,6 +3,47 @@ import Combine
 import Foundation
 @preconcurrency import Speech
 
+private func requestSpeechAuthorizationStatus() async -> SFSpeechRecognizerAuthorizationStatus {
+    await withCheckedContinuation { continuation in
+        SFSpeechRecognizer.requestAuthorization { status in
+            continuation.resume(returning: status)
+        }
+    }
+}
+
+private func requestMicrophoneAccess() async -> Bool {
+    await withCheckedContinuation { continuation in
+        AVCaptureDevice.requestAccess(for: .audio) { allowed in
+            continuation.resume(returning: allowed)
+        }
+    }
+}
+
+private func installSpeechAudioTap(
+    on inputNode: AVAudioInputNode,
+    format: AVAudioFormat,
+    request: SFSpeechAudioBufferRecognitionRequest
+) {
+    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
+        request.append(buffer)
+    }
+}
+
+private func startSpeechRecognitionTask(
+    recognizer: SFSpeechRecognizer,
+    request: SFSpeechAudioBufferRecognitionRequest,
+    onUpdate: @escaping @MainActor @Sendable (String?, Bool, String?) -> Void
+) -> SFSpeechRecognitionTask {
+    recognizer.recognitionTask(with: request) { result, error in
+        let transcript = result?.bestTranscription.formattedString
+        let isFinal = result?.isFinal ?? false
+        let errorText = error?.localizedDescription
+        Task { @MainActor in
+            onUpdate(transcript, isFinal, errorText)
+        }
+    }
+}
+
 enum PetContinuousVoicePhase: Equatable {
     case idle
     case requestingPermission
@@ -197,11 +238,7 @@ final class PetContinuousVoiceController: ObservableObject {
         case .authorized:
             speechStatus = .authorized
         case .notDetermined:
-            speechStatus = await withCheckedContinuation { continuation in
-                SFSpeechRecognizer.requestAuthorization { status in
-                    continuation.resume(returning: status)
-                }
-            }
+            speechStatus = await requestSpeechAuthorizationStatus()
         case .denied, .restricted:
             throw PetContinuousVoiceError.speechRecognitionDenied
         @unknown default:
@@ -216,7 +253,7 @@ final class PetContinuousVoiceController: ObservableObject {
         case .authorized:
             microphoneAllowed = true
         case .notDetermined:
-            microphoneAllowed = await AVCaptureDevice.requestAccess(for: .audio)
+            microphoneAllowed = await requestMicrophoneAccess()
         case .denied, .restricted:
             microphoneAllowed = false
         @unknown default:
@@ -273,23 +310,19 @@ final class PetContinuousVoiceController: ObservableObject {
         request.addsPunctuation = true
         latestPartialTranscript = ""
 
-        inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
-            request.append(buffer)
-        }
+        installSpeechAudioTap(on: inputNode, format: format, request: request)
         hasInputTap = true
         engine.prepare()
 
-        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            let transcript = result?.bestTranscription.formattedString
-            let isFinal = result?.isFinal ?? false
-            let errorText = error?.localizedDescription
-            Task { @MainActor in
-                self?.handleRecognitionUpdate(
-                    transcript: transcript,
-                    isFinal: isFinal,
-                    errorText: errorText
-                )
-            }
+        recognitionTask = startSpeechRecognitionTask(
+            recognizer: recognizer,
+            request: request
+        ) { [weak self] transcript, isFinal, errorText in
+            self?.handleRecognitionUpdate(
+                transcript: transcript,
+                isFinal: isFinal,
+                errorText: errorText
+            )
         }
 
         audioEngine = engine
