@@ -114,4 +114,20 @@ final class PetToolRouterTests: XCTestCase {
             )
         )
     }
+
+    func testBehaviorFeedbackResolverAnswersRepeatedTravelerConcernDirectly() {
+        let reply = PetConversationBehaviorFeedbackResolver.reply(
+            latestUserMessage: "你好像每次跟我对话都会加一个旅行者，是吧？"
+        )
+
+        XCTAssertEqual(
+            reply,
+            "你发现得没错，刚才语音会固定加上“旅行者”，听起来确实很重复。以后我只会在合适的时候偶尔这样称呼，不会每句话都加啦。"
+        )
+        XCTAssertNil(
+            PetConversationBehaviorFeedbackResolver.reply(
+                latestUserMessage: "旅行者今天要去哪里？"
+            )
+        )
+    }
 }

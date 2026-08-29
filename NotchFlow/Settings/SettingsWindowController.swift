@@ -170,7 +170,7 @@ private struct SettingsRootView: View {
 
     private var featureContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("四项功能互不依赖。关闭后会停止它自己的监听和界面入口，不影响其他功能。")
+            Text("各项功能互不依赖。关闭后会停止对应能力，不影响其他功能。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -198,6 +198,32 @@ private struct SettingsRootView: View {
                 icon: "timer",
                 binding: $preferences.timerEnabled
             )
+            petVoiceSettings
+        }
+    }
+
+    private var petVoiceSettings: some View {
+        GroupBox {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "waveform.and.person.filled")
+                    .font(.title3)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("派蒙语音", isOn: $preferences.petVoiceEnabled)
+                        .font(.headline)
+                    Text("使用内置 P1 清脆反应感固定声线朗读回复和工具结果；关闭时立即停止当前语音。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("完全离线运行，不上传聊天内容，也不会自动下载模型。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Button("停止播放") {
+                    NotificationCenter.default.post(name: .paimonStopVoiceRequested, object: nil)
+                }
+            }
+            .padding(8)
         }
     }
 

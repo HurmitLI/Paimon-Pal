@@ -3,6 +3,12 @@ import Combine
 import Foundation
 import SwiftUI
 
+enum PetTimerSpeechPolicy {
+    static func shouldSpeak(previous: CountdownPhase, current: CountdownPhase) -> Bool {
+        previous == .running && current == .ringing
+    }
+}
+
 @MainActor
 final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegate {
     @Published var draft = ""
@@ -17,22 +23,27 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
     private let preferences: AppPreferences
+    private let speech: PetSpeechController
     private let onOpenUtilityWindow: (UtilitySection) -> Void
     private let onOpenSettings: () -> Void
     private var conversationWindow: NSWindow?
     private var quickPromptWindow: PetQuickPromptPanel?
+    private var lastTimerPhase: CountdownPhase
     private var cancellables: Set<AnyCancellable> = []
 
     init(
         petPanel: NotchPetPanelController,
         timer: TimerController,
         preferences: AppPreferences,
+        speechController: PetSpeechController? = nil,
         onOpenUtilityWindow: @escaping (UtilitySection) -> Void,
         onOpenSettings: @escaping () -> Void
     ) {
         self.petPanel = petPanel
         self.timer = timer
         self.preferences = preferences
+        speech = speechController ?? PetSpeechController(preferences: preferences)
+        lastTimerPhase = timer.state.phase
         self.onOpenUtilityWindow = onOpenUtilityWindow
         self.onOpenSettings = onOpenSettings
         super.init()
@@ -40,6 +51,34 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         Publishers.CombineLatest3($isGenerating, $quickReply, $errorMessage)
             .dropFirst()
             .sink { [weak self] _ in self?.refreshQuickPromptFrame() }
+            .store(in: &cancellables)
+
+        preferences.$petVoiceEnabled
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] enabled in
+                guard !enabled else { return }
+                self?.speech.stop()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .paimonStopVoiceRequested)
+            .sink { [weak self] _ in self?.speech.stop() }
+            .store(in: &cancellables)
+
+        timer.$state
+            .map(\.phase)
+            .removeDuplicates()
+            .sink { [weak self] phase in
+                guard let self else { return }
+                let previousPhase = lastTimerPhase
+                lastTimerPhase = phase
+                guard PetTimerSpeechPolicy.shouldSpeak(
+                    previous: previousPhase,
+                    current: phase
+                ) else { return }
+                speakTimerFinishedReminder()
+            }
             .store(in: &cancellables)
     }
 
@@ -76,6 +115,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
 
     func closeQuickPrompt() {
         quickPromptWindow?.orderOut(nil)
+        speech.stop()
         if !isGenerating {
             petPanel.endModelInteraction()
         }
@@ -98,12 +138,13 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isGenerating, !prompt.isEmpty else { return }
 
+        speech.stop(notifyCompletion: false)
         let history = messages
         draft = ""
         errorMessage = nil
         quickReply = nil
         messages.append(.init(role: .user, text: prompt))
-        petPanel.beginModelSpeaking()
+        petPanel.beginModelListening()
 
         if let command = PetToolRouter.command(from: prompt) {
             let reply = execute(command)
@@ -112,6 +153,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             // 工具已经给出了真实的系统反馈。关闭回复后立即让出刘海区域，
             // 避免派蒙成功动画继续遮住计时器等持续活动。
             petPanel.endModelInteraction()
+            speak(reply, completion: .yieldToIsland)
             return
         }
 
@@ -121,7 +163,16 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         ) {
             messages.append(.init(role: .assistant, text: reply))
             quickReply = reply
-            petPanel.finishModelInteractionSuccessfully()
+            speak(reply, completion: .celebrate)
+            return
+        }
+
+        if let reply = PetConversationBehaviorFeedbackResolver.reply(
+            latestUserMessage: prompt
+        ) {
+            messages.append(.init(role: .assistant, text: reply))
+            quickReply = reply
+            speak(reply, completion: .celebrate)
             return
         }
 
@@ -137,7 +188,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
                 messages.append(.init(role: .assistant, text: reply))
                 quickReply = reply
                 isGenerating = false
-                petPanel.finishModelInteractionSuccessfully()
+                speak(reply, completion: .celebrate)
             } catch {
                 isGenerating = false
                 petPanel.endModelInteraction()
@@ -148,6 +199,7 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
 
     func clearConversation() {
         guard !isGenerating else { return }
+        speech.stop(notifyCompletion: false)
         messages = [
             .init(role: .assistant, text: "这一段已经清空啦。我们可以从现在重新聊。")
         ]
@@ -156,7 +208,54 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     }
 
     func windowWillClose(_ notification: Notification) {
+        speech.stop()
         petPanel.endModelInteraction()
+    }
+
+    func stopSpeech() {
+        speech.stop()
+    }
+
+    private enum SpeechCompletion {
+        case celebrate
+        case yieldToIsland
+    }
+
+    private func speak(_ reply: String, completion: SpeechCompletion) {
+        let scheduled = speech.speak(
+            reply,
+            onPlaybackStarted: { [weak self] in
+                self?.petPanel.beginModelSpeaking()
+            },
+            onFinished: { [weak self] in
+                guard let self else { return }
+                switch completion {
+                case .celebrate:
+                    petPanel.finishModelInteractionSuccessfully()
+                case .yieldToIsland:
+                    petPanel.endModelInteraction()
+                }
+            }
+        )
+        guard !scheduled else { return }
+        switch completion {
+        case .celebrate:
+            petPanel.finishModelInteractionSuccessfully()
+        case .yieldToIsland:
+            petPanel.endModelInteraction()
+        }
+    }
+
+    private func speakTimerFinishedReminder() {
+        speech.stop(notifyCompletion: false)
+        let scheduled = speech.speak(
+            "时间到啦！快回来看看吧。",
+            onPlaybackStarted: { [weak self] in self?.petPanel.beginModelSpeaking() },
+            onFinished: { [weak self] in self?.petPanel.endModelInteraction() }
+        )
+        if !scheduled {
+            petPanel.endModelInteraction()
+        }
     }
 
     private func execute(_ command: PetToolCommand) -> String {
@@ -338,6 +437,22 @@ enum PetConversationRecallResolver {
     }
 }
 
+enum PetConversationBehaviorFeedbackResolver {
+    static func reply(latestUserMessage: String) -> String? {
+        let normalized = latestUserMessage
+            .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
+        guard normalized.contains("旅行者") else { return nil }
+
+        let repetitionTerms = ["每次", "每一句", "每句话", "每句", "总是", "一直", "都会", "都加"]
+        let feedbackTerms = ["好像", "是吧", "是不是", "为什么", "怎么", "别", "不要", "不用"]
+        guard repetitionTerms.contains(where: normalized.contains),
+              feedbackTerms.contains(where: normalized.contains)
+        else { return nil }
+
+        return "你发现得没错，刚才语音会固定加上“旅行者”，听起来确实很重复。以后我只会在合适的时候偶尔这样称呼，不会每句话都加啦。"
+    }
+}
+
 enum PetConversationContextBuilder {
     private static let maximumHistoryMessages = 6
     private static let maximumCharactersPerMessage = 320
@@ -362,6 +477,7 @@ enum PetConversationContextBuilder {
         【任务】只回答“用户最新一句”。回答前必须先阅读“最近对话记录”，并自然承接其中的信息。
         【上下文规则】如果用户询问自己刚才说过什么、之前发生了什么，必须从记录中找到对应内容并直接准确回答；不得猜测、回避，也不得说用户讲错了。只有记录里确实没有答案时，才说明不记得。
         【表达规则】通常不要机械复述整段记录，但用户明确询问前文时，可以准确复述相关内容。
+        【反馈规则】如果用户正在评价、质疑或纠正你的用词与行为，必须先直接判断用户说得是否正确，再回应如何调整；不得把其中的关键词误当成新的角色扮演话题，不得转移问题。
 
         【最近对话记录】
         \(recentHistory)

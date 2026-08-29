@@ -100,6 +100,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onQuit = { NSApp.terminate(nil) }
         statusItem.islandIsExpanded = { [weak controller] in controller?.isExpanded ?? false }
 #if DEBUG
+        let debugDefaults = UserDefaults.standard
+        let showQuickPromptOnce = debugDefaults.bool(forKey: "debug.pet.showQuickPromptOnce")
+        let showConversationOnce = debugDefaults.bool(forKey: "debug.pet.showConversationOnce")
+        let runVoiceToolOnce = debugDefaults.bool(forKey: "debug.pet.runVoiceToolOnce")
+        let runPromptOnce = debugDefaults.string(forKey: "debug.pet.runPromptOnce")
+        debugDefaults.removeObject(forKey: "debug.pet.showQuickPromptOnce")
+        debugDefaults.removeObject(forKey: "debug.pet.showConversationOnce")
+        debugDefaults.removeObject(forKey: "debug.pet.runVoiceToolOnce")
+        debugDefaults.removeObject(forKey: "debug.pet.runPromptOnce")
+
         statusItem.onTestLocalModelConversation = { [weak localPetModel] in
             localPetModel?.showConversationPrompt()
         }
@@ -120,13 +130,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onTestPetSuccess = { [weak petController] in
             petController?.celebrateSuccessForTesting()
         }
-        if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_QUICK_PROMPT_AUTOSHOW"] == "1" {
+        if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_QUICK_PROMPT_AUTOSHOW"] == "1"
+            || showQuickPromptOnce {
             DispatchQueue.main.async {
                 localPetModel.showQuickPrompt()
             }
-        } else if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_CONVERSATION_AUTOSHOW"] == "1" {
+        } else if ProcessInfo.processInfo.environment["NOTCHFLOW_PET_CONVERSATION_AUTOSHOW"] == "1"
+            || showConversationOnce || runVoiceToolOnce || runPromptOnce != nil {
             DispatchQueue.main.async {
                 localPetModel.showConversationPrompt()
+            }
+        }
+        if runVoiceToolOnce {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                localPetModel.draft = "帮我计时10秒"
+                localPetModel.sendDraft()
+            }
+        }
+        if let runPromptOnce {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                localPetModel.draft = runPromptOnce
+                localPetModel.sendDraft()
             }
         }
 #endif
@@ -156,6 +180,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> Bool {
         settingsWindowController?.show()
         return true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        localPetModelController?.stopSpeech()
     }
 
     func openSettings() {

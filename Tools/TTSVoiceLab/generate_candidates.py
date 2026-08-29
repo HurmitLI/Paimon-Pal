@@ -87,9 +87,49 @@ REFINED_A_CANDIDATES = (
     },
 )
 
+CHARACTERFUL_CANDIDATES = (
+    {
+        "id": "P1",
+        "name": "清脆反应感版",
+        "instruction": (
+            "原创的小体量奇幻伙伴女声。主要用轻巧的高音区和头声，声音清脆、明亮、"
+            "带着真实的笑意和很快的反应感；像刚想到什么就立刻凑近朋友回应。"
+            "句子中要有短促停连和明显的高低变化，不要字字等长。禁止客服腔、播音腔、"
+            "短视频 AI 配音腔和过度标准的普通话，不要模仿任何真实人物或现有角色。"
+        ),
+    },
+    {
+        "id": "P2",
+        "name": "轻气声小向导版",
+        "instruction": (
+            "原创的年轻悬浮小向导女声。音高偏高，声音小巧轻盈，带少量自然气声和"
+            "轻微鼻腔共鸣，但不能发嗲。说话像在朋友身边即时回应，开头轻快，"
+            "重点词会忽然提高，句尾快速收住，不拖长。保留一点不规则的生动节奏。"
+            "禁止客服腔、播音腔、均匀机械节奏和通用 AI 女声，不要模仿任何真实人物或现有角色。"
+        ),
+    },
+    {
+        "id": "P3",
+        "name": "跳跃俏皮版",
+        "instruction": (
+            "原创的元气童话伙伴女声。音色清亮通透、高而不尖，节奏像小跳步一样有弹性；"
+            "每句开头有真实的惊喜反应，中间允许突然加快、轻微笑着说，句尾不做统一上扬。"
+            "吐字清楚但不要过度规整，要像角色当场说话，不像后期旁白。"
+            "禁止客服腔、短视频 AI 配音腔、成熟御姐音和粘腻撒娇，不要模仿任何真实人物或现有角色。"
+        ),
+    },
+)
+
 CANDIDATE_SETS = {
     "initial": CANDIDATES,
     "refined-a": REFINED_A_CANDIDATES,
+    "characterful": CHARACTERFUL_CANDIDATES,
+}
+
+SEED_BASES = {
+    "initial": 20260829,
+    "refined-a": 20260929,
+    "characterful": 20261029,
 }
 
 
@@ -146,7 +186,7 @@ def main() -> None:
             raise SystemExit(
                 f"Unknown candidate id {args.candidate_id!r}; available: {available}"
             )
-    seed_base = 20260829 if args.candidate_set == "initial" else 20260929
+    seed_base = SEED_BASES[args.candidate_set]
     for index, candidate in indexed_candidates:
         mx.random.seed(seed_base + index)
         started = time.perf_counter()

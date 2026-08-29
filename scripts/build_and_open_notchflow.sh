@@ -8,7 +8,7 @@ ENTITLEMENTS_PATH="$PROJECT_ROOT/NotchFlow/Resources/NotchFlow.entitlements"
 
 cd "$PROJECT_ROOT"
 
-echo "[1/4] 编译 NotchFlow 交互底座…"
+echo "[1/5] 编译 Paimon Pal…"
 /usr/bin/xcodebuild \
   -quiet \
   -project NotchFlow.xcodeproj \
@@ -19,10 +19,13 @@ echo "[1/4] 编译 NotchFlow 交互底座…"
   CODE_SIGNING_ALLOWED=NO \
   build
 
-echo "[2/4] 添加本机验证签名…"
+echo "[2/5] 内置 Paimon Pal 本地 TTS…"
+"$PROJECT_ROOT/scripts/embed_paimon_tts_runtime.sh" "$APP_PATH"
+
+echo "[3/5] 添加本机验证签名…"
 /usr/bin/codesign --force --deep --sign - --entitlements "$ENTITLEMENTS_PATH" "$APP_PATH"
 
-echo "[3/4] 关闭其他 Paimon Pal/NotchFlow 实例…"
+echo "[4/5] 关闭其他 Paimon Pal/NotchFlow 实例…"
 if RUNNING_PIDS="$(/usr/bin/pgrep -x NotchFlow 2>/dev/null)"; then
   while IFS= read -r RUNNING_PID; do
     [[ -n "$RUNNING_PID" ]] && /bin/kill "$RUNNING_PID"
@@ -39,7 +42,7 @@ if /usr/bin/pgrep -x NotchFlow >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "[4/4] 启动 NotchFlow…"
+echo "[5/5] 启动 Paimon Pal…"
 /usr/bin/open "$APP_PATH"
 
 echo "已启动：$APP_PATH"

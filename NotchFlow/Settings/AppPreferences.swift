@@ -54,6 +54,7 @@ final class AppPreferences: ObservableObject {
         static let fileShelfEnabled = "settings.features.fileShelfEnabled"
         static let systemStatusEnabled = "settings.features.systemStatusEnabled"
         static let timerEnabled = "settings.features.timerEnabled"
+        static let petVoiceEnabled = "settings.features.petVoiceEnabled"
         static let displayTargetMode = "settings.display.targetMode"
         static let specificDisplayID = "settings.display.specificDisplayID"
         static let fullScreenBehavior = "settings.display.fullScreenBehavior"
@@ -77,6 +78,9 @@ final class AppPreferences: ObservableObject {
     }
     @Published var timerEnabled: Bool {
         didSet { defaults.set(timerEnabled, forKey: Key.timerEnabled) }
+    }
+    @Published var petVoiceEnabled: Bool {
+        didSet { defaults.set(petVoiceEnabled, forKey: Key.petVoiceEnabled) }
     }
     @Published var displayTargetMode: DisplayTargetMode {
         didSet { defaults.set(displayTargetMode.rawValue, forKey: Key.displayTargetMode) }
@@ -134,6 +138,7 @@ final class AppPreferences: ObservableObject {
         fileShelfEnabled = defaults.object(forKey: Key.fileShelfEnabled) as? Bool ?? true
         systemStatusEnabled = defaults.object(forKey: Key.systemStatusEnabled) as? Bool ?? true
         timerEnabled = defaults.object(forKey: Key.timerEnabled) as? Bool ?? true
+        petVoiceEnabled = defaults.object(forKey: Key.petVoiceEnabled) as? Bool ?? true
         displayTargetMode = defaults.string(forKey: Key.displayTargetMode)
             .flatMap(DisplayTargetMode.init(rawValue:)) ?? .builtIn
         specificDisplayID = defaults.string(forKey: Key.specificDisplayID)
@@ -230,6 +235,7 @@ final class AppPreferences: ObservableObject {
         defaults.set(fileShelfEnabled, forKey: Key.fileShelfEnabled)
         defaults.set(systemStatusEnabled, forKey: Key.systemStatusEnabled)
         defaults.set(timerEnabled, forKey: Key.timerEnabled)
+        defaults.set(petVoiceEnabled, forKey: Key.petVoiceEnabled)
         defaults.set(displayTargetMode.rawValue, forKey: Key.displayTargetMode)
         defaults.set(fullScreenBehavior.rawValue, forKey: Key.fullScreenBehavior)
         defaults.set(externalDisplayTopOffset, forKey: Key.externalDisplayTopOffset)

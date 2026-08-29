@@ -44,6 +44,7 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertTrue(preferences.fileShelfEnabled)
         XCTAssertTrue(preferences.systemStatusEnabled)
         XCTAssertTrue(preferences.timerEnabled)
+        XCTAssertTrue(preferences.petVoiceEnabled)
         XCTAssertEqual(preferences.displayTargetMode, .builtIn)
         XCTAssertNil(preferences.specificDisplayID)
         XCTAssertEqual(preferences.fullScreenBehavior, .hidden)
@@ -61,12 +62,14 @@ final class AppPreferencesTests: XCTestCase {
         preferences.fileShelfEnabled = true
         preferences.systemStatusEnabled = false
         preferences.timerEnabled = true
+        preferences.petVoiceEnabled = false
 
         let restored = AppPreferences(defaults: defaults)
         XCTAssertFalse(restored.musicEnabled)
         XCTAssertTrue(restored.fileShelfEnabled)
         XCTAssertFalse(restored.systemStatusEnabled)
         XCTAssertTrue(restored.timerEnabled)
+        XCTAssertFalse(restored.petVoiceEnabled)
     }
 
     func testOneHourPausePersistsAndForcesVisibleRecoveryEntry() {

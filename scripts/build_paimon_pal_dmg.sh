@@ -27,7 +27,7 @@ trap cleanup EXIT
 
 cd "$PROJECT_ROOT"
 
-echo "[1/5] 构建 Paimon Pal ${VERSION} (${BUILD}) Release arm64…"
+echo "[1/6] 构建 Paimon Pal ${VERSION} (${BUILD}) Release arm64…"
 /usr/bin/xcodebuild \
     -quiet \
     -project NotchFlow.xcodeproj \
@@ -38,7 +38,10 @@ echo "[1/5] 构建 Paimon Pal ${VERSION} (${BUILD}) Release arm64…"
     CODE_SIGNING_ALLOWED=NO \
     build
 
-echo "[2/5] 添加仅供本机测试的临时签名…"
+echo "[2/6] 内置 Paimon Pal 本地 TTS…"
+"$PROJECT_ROOT/scripts/embed_paimon_tts_runtime.sh" "$INTERNAL_APP_PATH"
+
+echo "[3/6] 添加仅供本机测试的临时签名…"
 /usr/bin/codesign \
     --force \
     --deep \
@@ -47,11 +50,11 @@ echo "[2/5] 添加仅供本机测试的临时签名…"
     "$INTERNAL_APP_PATH"
 /usr/bin/codesign --verify --deep --strict "$INTERNAL_APP_PATH"
 
-echo "[3/5] 准备 Paimon Pal 安装盘内容…"
+echo "[4/6] 准备 Paimon Pal 安装盘内容…"
 /usr/bin/ditto "$INTERNAL_APP_PATH" "$STAGING_DIR/Paimon Pal.app"
 /bin/ln -s /Applications "$STAGING_DIR/Applications"
 
-echo "[4/5] 生成并验证 DMG…"
+echo "[5/6] 生成并验证 DMG…"
 /usr/bin/hdiutil create \
     -volname "Paimon Pal ${VERSION}" \
     -srcfolder "$STAGING_DIR" \
@@ -60,7 +63,7 @@ echo "[4/5] 生成并验证 DMG…"
     "$DMG_PATH"
 /usr/bin/hdiutil verify "$DMG_PATH"
 
-echo "[5/5] 计算校验值…"
+echo "[6/6] 计算校验值…"
 CHECKSUM="$(/usr/bin/shasum -a 256 "$DMG_PATH" | /usr/bin/awk '{print $1}')"
 
 echo ""
