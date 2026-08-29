@@ -6,6 +6,10 @@ build/
 dist/
 PrivatePetAssets/
 PrivateModelAssets/
+PrivateTTSAssets/
+.tts-lab-venv/
+__pycache__/
+*.pyc
 *.profraw
 *.xcuserstate
 xcuserdata/
