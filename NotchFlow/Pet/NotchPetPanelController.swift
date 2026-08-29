@@ -57,6 +57,20 @@ final class NotchPetPanelController {
         panel.orderOut(nil)
     }
 
+    var isListening: Bool {
+        pet.isListening
+    }
+
+    func toggleListeningForTesting() {
+        retreatTask?.cancel()
+        if pet.isListening {
+            pet.stopListening()
+        } else {
+            pet.startListening()
+        }
+        reconcileVisibility()
+    }
+
     private func configurePanel() {
         panel.isFloatingPanel = true
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
@@ -166,7 +180,12 @@ final class NotchPetPanelController {
     }
 
     private var stateAllowsPet: Bool {
-        switch coordinator.state {
+        // 聆听由用户主动开启，必须持续到用户主动结束。
+        // 普通音乐、计时器或短暂 HUD 更新不得把它挤掉。
+        if pet.keepsVisibleWithoutPointer {
+            return true
+        }
+        return switch coordinator.state {
         case .silent:
             true
         case .hoverPreview(let activity):
@@ -204,6 +223,10 @@ final class NotchPetPanelController {
 
         let pointer = NSEvent.mouseLocation
         panel.ignoresMouseEvents = !(pet.stage == .idle && petHitFrame.contains(pointer))
+        if pet.keepsVisibleWithoutPointer {
+            retreatTask?.cancel()
+            return
+        }
         let petInteractionFrame = panel.frame.insetBy(dx: 18, dy: 10)
         if notchRect.contains(pointer) || (pet.isAwake && petInteractionFrame.contains(pointer)) {
             retreatTask?.cancel()
@@ -227,6 +250,7 @@ final class NotchPetPanelController {
         retreatTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(1800))
             guard !Task.isCancelled, let self else { return }
+            guard !pet.keepsVisibleWithoutPointer else { return }
             let pointer = NSEvent.mouseLocation
             guard !panel.frame.insetBy(dx: 18, dy: 10).contains(pointer) else { return }
             pet.returnToSleep()

@@ -70,6 +70,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onResume = { [weak preferences] in preferences?.resume() }
         statusItem.onQuit = { NSApp.terminate(nil) }
         statusItem.islandIsExpanded = { [weak controller] in controller?.isExpanded ?? false }
+#if DEBUG
+        statusItem.onTogglePetListening = { [weak petController, weak statusItem] in
+            petController?.toggleListeningForTesting()
+            statusItem?.refreshMenu()
+        }
+        statusItem.petIsListening = { [weak petController] in
+            petController?.isListening ?? false
+        }
+#endif
 
         panelController = controller
         petPanelController = petController

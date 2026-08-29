@@ -13,8 +13,12 @@ final class StatusItemControllerTests: XCTestCase {
         }
         var didOpenSettings = false
         var didToggleIsland = false
+        var didToggleListening = false
         controller.onOpenSettings = { didOpenSettings = true }
         controller.onToggleIsland = { didToggleIsland = true }
+#if DEBUG
+        controller.onTogglePetListening = { didToggleListening = true }
+#endif
 
         let menu = NSMenu()
         controller.menuNeedsUpdate(menu)
@@ -23,8 +27,14 @@ final class StatusItemControllerTests: XCTestCase {
         XCTAssertNotNil(menu.item(withTitle: "暂停至明天"))
         send(menu.item(withTitle: "打开设置…"))
         send(menu.item(withTitle: "展开刘海"))
+#if DEBUG
+        send(menu.item(withTitle: "测试派蒙聆听"))
+#endif
         XCTAssertTrue(didOpenSettings)
         XCTAssertTrue(didToggleIsland)
+#if DEBUG
+        XCTAssertTrue(didToggleListening)
+#endif
     }
 
     func testPausedMenuKeepsRecoveryAndDisablesIslandToggle() {

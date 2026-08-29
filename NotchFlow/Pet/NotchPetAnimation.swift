@@ -6,6 +6,7 @@ enum NotchPetMotion: String, CaseIterable {
     case peekToEmerge
     case idle
     case clickReaction
+    case listening
     case returnToSleep
 
     var resourceName: String {
@@ -14,6 +15,7 @@ enum NotchPetMotion: String, CaseIterable {
         case .peekToEmerge: "peek-to-emerge-transparent-v1"
         case .idle: "notch-idle-loop-transparent-v1"
         case .clickReaction: "click-reaction-transparent-v1"
+        case .listening: "listening-loop-transparent-v1"
         case .returnToSleep: "return-to-sleep-transparent-v1"
         }
     }
@@ -22,7 +24,7 @@ enum NotchPetMotion: String, CaseIterable {
         switch self {
         case .sleepToPeek, .returnToSleep: 8
         case .peekToEmerge, .clickReaction: 10
-        case .idle: 6
+        case .idle, .listening: 6
         }
     }
 }

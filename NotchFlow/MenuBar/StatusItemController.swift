@@ -9,6 +9,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var onResume: (() -> Void)?
     var onQuit: (() -> Void)?
     var islandIsExpanded: (() -> Bool)?
+#if DEBUG
+    var onTogglePetListening: (() -> Void)?
+    var petIsListening: (() -> Bool)?
+#endif
 
     private let preferences: AppPreferences
     private var statusItem: NSStatusItem?
@@ -61,6 +65,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         toggle.isEnabled = !preferences.isPaused
         menu.addItem(toggle)
 
+#if DEBUG
+        let listeningTitle = petIsListening?() == true
+            ? "结束派蒙聆听测试"
+            : "测试派蒙聆听"
+        let listening = actionItem(
+            listeningTitle,
+            action: #selector(togglePetListening),
+            key: ""
+        )
+        listening.isEnabled = !preferences.isPaused
+        menu.addItem(listening)
+#endif
+
         menu.addItem(.separator())
         if preferences.isPaused {
             menu.addItem(actionItem("立即恢复", action: #selector(resume), key: ""))
@@ -85,4 +102,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func pauseUntilTomorrow() { onPauseUntilTomorrow?() }
     @objc private func resume() { onResume?() }
     @objc private func quit() { onQuit?() }
+#if DEBUG
+    @objc private func togglePetListening() { onTogglePetListening?() }
+#endif
 }

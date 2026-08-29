@@ -8,6 +8,7 @@ enum NotchPetStage: Equatable {
     case emerging
     case idle
     case reacting
+    case listening
     case returning
 }
 
@@ -32,6 +33,14 @@ final class NotchPetController: ObservableObject {
 
     var hasRenderableFrame: Bool {
         currentImage != nil
+    }
+
+    var isListening: Bool {
+        stage == .listening
+    }
+
+    var keepsVisibleWithoutPointer: Bool {
+        stage == .listening
     }
 
     func wakeUp() {
@@ -60,6 +69,26 @@ final class NotchPetController: ObservableObject {
             guard let self else { return }
             stage = .reacting
             guard await playOnce(.clickReaction) else { return }
+            stage = .idle
+            await playCalmIdle()
+        }
+    }
+
+    func startListening() {
+        guard stage != .listening, stage != .returning else { return }
+        playbackTask?.cancel()
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            stage = .listening
+            await playLoop(.listening)
+        }
+    }
+
+    func stopListening() {
+        guard stage == .listening else { return }
+        playbackTask?.cancel()
+        playbackTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             stage = .idle
             await playCalmIdle()
         }
@@ -115,6 +144,25 @@ final class NotchPetController: ObservableObject {
                 // 当前生成的“眨眼”帧会同时改变身体姿势。
                 // 在拆出独立眼部图层前，待机保持完全静止，避免角色左右晃动。
                 try await Task.sleep(for: .seconds(60))
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func playLoop(_ motion: NotchPetMotion) async {
+        do {
+            let images = try frames(for: motion)
+            guard !images.isEmpty else { return }
+            lastError = nil
+            while !Task.isCancelled {
+                for image in images {
+                    guard !Task.isCancelled else { return }
+                    currentImage = image
+                    try await Task.sleep(nanoseconds: frameInterval(for: motion))
+                }
             }
         } catch is CancellationError {
             return
