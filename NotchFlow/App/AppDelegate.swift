@@ -59,7 +59,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenService: screenService,
             preferences: preferences
         )
-        let localPetModel = LocalPetModelController(petPanel: petController, timer: timer)
+        let localPetModel = LocalPetModelController(
+            petPanel: petController,
+            timer: timer,
+            preferences: preferences,
+            onOpenUtilityWindow: { [weak controller] section in
+                controller?.openUtilityWindow(section)
+            },
+            onOpenSettings: { [weak settingsWindow] in
+                settingsWindow?.show()
+            }
+        )
         petController.onPetClicked = { [weak localPetModel] in
             localPetModel?.showConversationPrompt()
         }

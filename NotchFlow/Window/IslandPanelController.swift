@@ -230,7 +230,7 @@ final class IslandPanelController {
         }
     }
 
-    private func openUtilityWindow(_ section: UtilitySection) {
+    func openUtilityWindow(_ section: UtilitySection) {
         if utilityWindowController == nil {
             utilityWindowController = UtilityWindowController(
                 music: music,

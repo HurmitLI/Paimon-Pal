@@ -5,10 +5,22 @@ import Foundation
 final class LocalPetModelController {
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
+    private let preferences: AppPreferences
+    private let onOpenUtilityWindow: (UtilitySection) -> Void
+    private let onOpenSettings: () -> Void
 
-    init(petPanel: NotchPetPanelController, timer: TimerController) {
+    init(
+        petPanel: NotchPetPanelController,
+        timer: TimerController,
+        preferences: AppPreferences,
+        onOpenUtilityWindow: @escaping (UtilitySection) -> Void,
+        onOpenSettings: @escaping () -> Void
+    ) {
         self.petPanel = petPanel
         self.timer = timer
+        self.preferences = preferences
+        self.onOpenUtilityWindow = onOpenUtilityWindow
+        self.onOpenSettings = onOpenSettings
     }
 
     func showConversationPrompt() {
@@ -66,7 +78,38 @@ final class LocalPetModelController {
         case .startTimer(let seconds):
             timer.begin(seconds: seconds)
             return "好哒，已经开始计时 \(TimerTextFormatter.duration(seconds: seconds))。"
+        case .open(let destination):
+            return open(destination)
         }
+    }
+
+    private func open(_ destination: PetToolDestination) -> String {
+        switch destination {
+        case .settings:
+            onOpenSettings()
+            return "好哒，已经打开 NotchFlow 设置。"
+        case .music:
+            return openUtility(.music, isEnabled: preferences.musicEnabled, title: "音乐")
+        case .files:
+            return openUtility(.files, isEnabled: preferences.fileShelfEnabled, title: "文件架")
+        case .system:
+            return openUtility(.system, isEnabled: preferences.systemStatusEnabled, title: "系统状态")
+        case .timer:
+            return openUtility(.timer, isEnabled: preferences.timerEnabled, title: "计时器")
+        }
+    }
+
+    private func openUtility(
+        _ section: UtilitySection,
+        isEnabled: Bool,
+        title: String
+    ) -> String {
+        guard isEnabled else {
+            onOpenSettings()
+            return "\(title)功能目前是关闭的，我已经打开设置，你可以先把它开启。"
+        }
+        onOpenUtilityWindow(section)
+        return "好哒，已经打开 NotchFlow \(title)窗口。"
     }
 
     private func presentReply(_ reply: String) {
@@ -89,37 +132,55 @@ final class LocalPetModelController {
 
 enum PetToolCommand: Equatable {
     case startTimer(seconds: Int)
+    case open(PetToolDestination)
+}
+
+enum PetToolDestination: Equatable {
+    case settings
+    case music
+    case files
+    case system
+    case timer
 }
 
 enum PetToolRouter {
     static func command(from input: String) -> PetToolCommand? {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         let timerKeywords = ["计时", "倒计时", "提醒我"]
-        guard timerKeywords.contains(where: text.contains) else { return nil }
+        if timerKeywords.contains(where: text.contains),
+           let timer = timerCommand(from: text) {
+            return timer
+        }
 
+        let openKeywords = ["打开", "查看", "看看", "带我去"]
+        guard openKeywords.contains(where: text.contains) else { return nil }
+        if text.contains("设置") { return .open(.settings) }
+        if text.contains("文件架") { return .open(.files) }
+        if text.contains("系统状态") { return .open(.system) }
+        if text.contains("计时器") { return .open(.timer) }
+        if text.contains("音乐") { return .open(.music) }
+        return nil
+    }
+
+    private static func timerCommand(from text: String) -> PetToolCommand? {
         let pattern = #"(\d{1,5})\s*(个?小时|分钟|分|秒)"#
         guard let expression = try? NSRegularExpression(pattern: pattern),
               let match = expression.firstMatch(
-                in: text,
-                range: NSRange(text.startIndex..., in: text)
+                  in: text,
+                  range: NSRange(text.startIndex..., in: text)
               ),
               let amountRange = Range(match.range(at: 1), in: text),
               let unitRange = Range(match.range(at: 2), in: text),
               let amount = Int(text[amountRange])
         else { return nil }
 
-        let unit = String(text[unitRange])
-        let multiplier: Int
-        switch unit {
-        case "小时", "个小时":
-            multiplier = 3_600
-        case "分钟", "分":
-            multiplier = 60
-        case "秒":
-            multiplier = 1
-        default:
-            return nil
+        let multiplier = switch String(text[unitRange]) {
+        case "小时", "个小时": 3_600
+        case "分钟", "分": 60
+        case "秒": 1
+        default: 0
         }
+        guard multiplier > 0 else { return nil }
 
         let (seconds, overflow) = amount.multipliedReportingOverflow(by: multiplier)
         guard !overflow, (1...359_999).contains(seconds) else { return nil }
