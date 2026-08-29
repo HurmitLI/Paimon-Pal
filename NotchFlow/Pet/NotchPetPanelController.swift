@@ -202,7 +202,12 @@ final class NotchPetPanelController {
         guard pet.hasRenderableFrame else {
             return hidePanel(reason: pet.lastError ?? "missing frame")
         }
-        guard stateAllowsPet else { return hidePanel(reason: "island activity") }
+        guard NotchPetActivityVisibilityPolicy.allows(
+            state: coordinator.state,
+            petKeepsVisible: pet.keepsVisibleWithoutPointer
+        ) else {
+            return hidePanel(reason: "island activity")
+        }
         guard let geometry = currentPhysicalNotchGeometry else {
             return hidePanel(reason: "no physical notch")
         }
@@ -234,22 +239,6 @@ final class NotchPetPanelController {
         panel.ignoresMouseEvents = true
         pet.resetToSleep()
         panel.orderOut(nil)
-    }
-
-    private var stateAllowsPet: Bool {
-        // 聆听由用户主动开启，必须持续到用户主动结束。
-        // 普通音乐、计时器或短暂 HUD 更新不得把它挤掉。
-        if pet.keepsVisibleWithoutPointer {
-            return true
-        }
-        return switch coordinator.state {
-        case .silent:
-            true
-        case .hoverPreview(let activity):
-            activity == nil
-        case .compact, .temporaryHUD, .expanded, .fileReceiving:
-            false
-        }
     }
 
     private var currentPhysicalNotchGeometry: IslandScreenGeometry? {
@@ -314,5 +303,31 @@ final class NotchPetPanelController {
             guard !panel.frame.insetBy(dx: 18, dy: 10).contains(pointer) else { return }
             pet.returnToSleep()
         }
+    }
+}
+
+enum NotchPetActivityVisibilityPolicy {
+    static func allows(state: IslandState, petKeepsVisible: Bool) -> Bool {
+        // 用户主动开启的聆听或说话状态必须持续，不能被普通活动打断。
+        if petKeepsVisible {
+            return true
+        }
+
+        return switch state {
+        case .silent:
+            true
+        case .compact(let activity):
+            activity.allowsPetCompanion
+        case .hoverPreview(let activity):
+            activity?.allowsPetCompanion ?? true
+        case .temporaryHUD, .expanded, .fileReceiving:
+            false
+        }
+    }
+}
+
+private extension IslandActivity {
+    var allowsPetCompanion: Bool {
+        kind == .timer || kind == .music
     }
 }

@@ -139,6 +139,70 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         }
     }
 
+    func testPetCanWakeWhileTimerOrMusicUsesCompactIsland() {
+        let timer = IslandActivity(
+            id: "timer",
+            kind: .timer,
+            title: "01:00"
+        )
+        let music = IslandActivity(
+            id: "music",
+            kind: .music,
+            title: "正在播放"
+        )
+
+        XCTAssertTrue(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .compact(timer),
+                petKeepsVisible: false
+            )
+        )
+        XCTAssertTrue(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .hoverPreview(music),
+                petKeepsVisible: false
+            )
+        )
+    }
+
+    func testPetYieldsToCriticalAndInteractiveIslandStates() {
+        let ringingTimer = IslandActivity(
+            id: "ringing",
+            kind: .ringingTimer,
+            title: "时间到"
+        )
+        let volumeHUD = IslandActivity(
+            id: "volume",
+            kind: .systemHUD,
+            title: "50%"
+        )
+
+        XCTAssertFalse(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .compact(ringingTimer),
+                petKeepsVisible: false
+            )
+        )
+        XCTAssertFalse(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .temporaryHUD(volumeHUD),
+                petKeepsVisible: false
+            )
+        )
+        XCTAssertFalse(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .expanded(nil),
+                petKeepsVisible: false
+            )
+        )
+        XCTAssertTrue(
+            NotchPetActivityVisibilityPolicy.allows(
+                state: .expanded(nil),
+                petKeepsVisible: true
+            )
+        )
+    }
+
     func testNoNotchUsesSixPointFloatingOffset() {
         let external = IslandScreenGeometry(
             screenID: "3",
