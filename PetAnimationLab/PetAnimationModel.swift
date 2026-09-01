@@ -9,7 +9,7 @@ struct PetAnimationManifest: Decodable {
     let animations: [PetAnimationDefinition]
 }
 
-struct PetAnimationGrid: Decodable {
+struct PetAnimationGrid: Decodable, Hashable {
     let columns: Int
     let rows: Int
     let frameCount: Int
@@ -23,6 +23,7 @@ struct PetAnimationDefinition: Decodable, Identifiable, Hashable {
     let fps: Int
     let playback: String
     let nextState: String?
+    let grid: PetAnimationGrid?
 
     var displayName: String {
         switch id {
@@ -112,9 +113,10 @@ struct PetAnimationAssetLoader {
 
     static func loadFrames(
         definition: PetAnimationDefinition,
-        grid: PetAnimationGrid,
+        defaultGrid: PetAnimationGrid,
         manifestURL: URL
     ) throws -> [NSImage] {
+        let grid = definition.grid ?? defaultGrid
         guard grid.columns * grid.rows == grid.frameCount else {
             throw PetAnimationLoadError.invalidGrid
         }
@@ -216,7 +218,7 @@ final class PetAnimationPlayerModel: ObservableObject {
         do {
             frames = try PetAnimationAssetLoader.loadFrames(
                 definition: definition,
-                grid: manifest.grid,
+                defaultGrid: manifest.grid,
                 manifestURL: manifestURL
             )
             selectedAnimation = definition

@@ -15,10 +15,10 @@ enum NotchPetMotion: String, CaseIterable {
         switch self {
         case .sleepToPeek: "den-sleep-to-peek-transparent-v4"
         case .peekToEmerge: "peek-to-emerge-transparent-v1"
-        case .idle: "notch-idle-loop-transparent-v4"
-        case .clickReaction: "click-reaction-transparent-v1"
-        case .listening: "listening-loop-transparent-v1"
-        case .speaking: "speaking-loop-transparent-v1"
+        case .idle: "notch-idle-loop-transparent-v5"
+        case .clickReaction: "click-reaction-transparent-v2"
+        case .listening: "listening-loop-transparent-v2"
+        case .speaking: "speaking-loop-transparent-v2"
         case .successCelebration: "success-celebration-transparent-v1"
         case .returnToSleep: "return-to-sleep-transparent-v1"
         }
@@ -27,14 +27,21 @@ enum NotchPetMotion: String, CaseIterable {
     var framesPerSecond: Int {
         switch self {
         case .sleepToPeek, .successCelebration, .returnToSleep: 8
-        case .peekToEmerge, .clickReaction: 10
-        case .idle: 10
-        case .listening, .speaking: 6
+        case .peekToEmerge: 10
+        case .clickReaction: 16
+        case .idle, .listening: 12
+        case .speaking: 16
         }
     }
 
     var gridRows: Int {
-        self == .idle ? 4 : 2
+        switch self {
+        case .idle, .clickReaction, .listening, .speaking:
+            4
+        case .sleepToPeek, .peekToEmerge,
+             .successCelebration, .returnToSleep:
+            2
+        }
     }
 
     var usesStableBodyCanvas: Bool {

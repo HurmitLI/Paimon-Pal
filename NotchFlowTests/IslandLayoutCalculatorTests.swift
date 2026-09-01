@@ -47,6 +47,22 @@ final class IslandLayoutCalculatorTests: XCTestCase {
         XCTAssertTrue(frames.allSatisfy { $0.size.width > 0 && $0.size.height > 0 })
     }
 
+    func testConversationSpriteSheetsProvideSixteenRealFrames() throws {
+        for motion: NotchPetMotion in [.clickReaction, .listening, .speaking] {
+            let frames = try NotchPetAssetLoader().frames(for: motion)
+
+            XCTAssertEqual(frames.count, 16, "\(motion.rawValue) 应使用 16 帧动作表")
+            XCTAssertTrue(frames.allSatisfy { $0.size.width > 0 && $0.size.height > 0 })
+        }
+    }
+
+    func testUpgradedAnimationCadenceMatchesMotionIntent() {
+        XCTAssertEqual(NotchPetMotion.idle.framesPerSecond, 12)
+        XCTAssertEqual(NotchPetMotion.clickReaction.framesPerSecond, 16)
+        XCTAssertEqual(NotchPetMotion.listening.framesPerSecond, 12)
+        XCTAssertEqual(NotchPetMotion.speaking.framesPerSecond, 16)
+    }
+
     func testIdleChoreographyAddsAQuietGreetingWave() {
         XCTAssertNil(NotchPetIdleChoreography.flourish(afterCompletedCycles: 1))
         XCTAssertEqual(
