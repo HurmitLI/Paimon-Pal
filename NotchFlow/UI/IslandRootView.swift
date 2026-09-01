@@ -12,6 +12,7 @@ struct IslandRootView: View {
     @ObservedObject var preferences: AppPreferences
     @ObservedObject var screenService: ScreenGeometryService
     let onOpenUtilityWindow: (UtilitySection) -> Void
+    let onOpenWorkspace: () -> Void
     let onOpenSettings: () -> Void
 
     @State private var isDropTargeted = false
@@ -38,6 +39,7 @@ struct IslandRootView: View {
                 fileShelf.setDropTargeted(preferences.fileShelfEnabled && targeted)
             }
             .contextMenu {
+                Button("打开工作台…") { onOpenWorkspace() }
                 Button("打开设置…") { onOpenSettings() }
                 Divider()
                 if preferences.musicEnabled {
@@ -156,22 +158,31 @@ struct IslandRootView: View {
                 }
             } else {
                 HStack(spacing: 0) {
-                    Button(action: onOpenSettings) {
-                        Image(systemName: "gearshape.fill")
+                    Button(action: onOpenWorkspace) {
+                        Image(systemName: "square.grid.2x2.fill")
                             .frame(width: 28, height: 28)
                     }
                     .buttonStyle(.plain)
-                    .help("打开设置")
+                    .help("打开 Paimon Pal 工作台")
 
                     Spacer(minLength: 0)
 
-                    if preferences.fileShelfEnabled {
+                    HStack(spacing: 2) {
+                        Button(action: onOpenSettings) {
+                            Image(systemName: "gearshape.fill")
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .help("打开设置")
+
+                        if preferences.fileShelfEnabled {
                         Button(action: { onOpenUtilityWindow(.files) }) {
                             Image(systemName: "tray.full.fill")
                                 .frame(width: 28, height: 28)
                         }
                         .buttonStyle(.plain)
                         .help("打开文件架")
+                        }
                     }
                 }
             }

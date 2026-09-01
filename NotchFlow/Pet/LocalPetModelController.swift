@@ -23,9 +23,11 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
     private let petPanel: NotchPetPanelController
     private let timer: TimerController
     private let music: MusicController
+    private let productivityStore: ProductivityStore
     private let preferences: AppPreferences
     private let speech: PetSpeechController
     private let onOpenUtilityWindow: (UtilitySection) -> Void
+    private let onOpenWorkspace: (WorkspaceSection) -> Void
     private let onOpenSettings: () -> Void
     private var conversationWindow: NSWindow?
     private var quickPromptWindow: PetQuickPromptPanel?
@@ -36,18 +38,22 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
         petPanel: NotchPetPanelController,
         timer: TimerController,
         music: MusicController,
+        productivityStore: ProductivityStore,
         preferences: AppPreferences,
         speechController: PetSpeechController? = nil,
         onOpenUtilityWindow: @escaping (UtilitySection) -> Void,
+        onOpenWorkspace: @escaping (WorkspaceSection) -> Void,
         onOpenSettings: @escaping () -> Void
     ) {
         self.petPanel = petPanel
         self.timer = timer
         self.music = music
+        self.productivityStore = productivityStore
         self.preferences = preferences
         speech = speechController ?? PetSpeechController(preferences: preferences)
         lastTimerPhase = timer.state.phase
         self.onOpenUtilityWindow = onOpenUtilityWindow
+        self.onOpenWorkspace = onOpenWorkspace
         self.onOpenSettings = onOpenSettings
         super.init()
 
@@ -330,6 +336,14 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             )
         case .open(let destination):
             return open(destination)
+        case .addTodo(let title):
+            guard productivityStore.addTodo(title: title) != nil else {
+                return "这条待办没有内容，我还不能保存。"
+            }
+            return "好哒，已经把“\(title)”加入待办。"
+        case .addNote(let body):
+            let note = productivityStore.createNote(body: body)
+            return "好哒，已经记到“\(note.title)”里。"
         }
     }
 
@@ -346,6 +360,30 @@ final class LocalPetModelController: NSObject, ObservableObject, NSWindowDelegat
             return openUtility(.system, isEnabled: preferences.systemStatusEnabled, title: "系统状态")
         case .timer:
             return openUtility(.timer, isEnabled: preferences.timerEnabled, title: "计时器")
+        case .workspace:
+            onOpenWorkspace(.dashboard)
+            return "好哒，已经打开 Paimon Pal 工作台。"
+        case .todos:
+            onOpenWorkspace(.todos)
+            return "好哒，已经打开待办。"
+        case .notes:
+            onOpenWorkspace(.notes)
+            return "好哒，已经打开随笔记。"
+        case .links:
+            onOpenWorkspace(.links)
+            return "好哒，已经打开链接收藏。"
+        case .clipboard:
+            onOpenWorkspace(.clipboard)
+            return "好哒，已经打开剪贴板历史。"
+        case .recordings:
+            onOpenWorkspace(.recordings)
+            return "好哒，已经打开录音。"
+        case .mirror:
+            onOpenWorkspace(.mirror)
+            return "好哒，已经打开镜子页。"
+        case .vault:
+            onOpenWorkspace(.vault)
+            return "好哒，已经打开本机保险箱。"
         }
     }
 
@@ -841,6 +879,8 @@ enum PetToolCommand: Equatable {
     case timer(PetTimerAction)
     case music(PetMusicAction)
     case open(PetToolDestination)
+    case addTodo(title: String)
+    case addNote(body: String)
 }
 
 enum PetTimerAction: Equatable {
@@ -981,11 +1021,31 @@ enum PetToolDestination: Equatable {
     case files
     case system
     case timer
+    case workspace
+    case todos
+    case notes
+    case links
+    case clipboard
+    case recordings
+    case mirror
+    case vault
 }
 
 enum PetToolRouter {
     static func command(from input: String) -> PetToolCommand? {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let todoTitle = explicitPayload(
+            from: text,
+            prefixes: ["添加待办", "创建待办", "记个待办", "记一条待办"]
+        ) {
+            return .addTodo(title: todoTitle)
+        }
+        if let noteBody = explicitPayload(
+            from: text,
+            prefixes: ["记笔记", "记录一下", "记到随笔", "写个随笔"]
+        ) {
+            return .addNote(body: noteBody)
+        }
         let timerKeywords = ["计时", "倒计时", "提醒我"]
         if timerKeywords.contains(where: text.contains),
            let timer = timerCommand(from: text) {
@@ -1006,7 +1066,25 @@ enum PetToolRouter {
         if text.contains("系统状态") { return .open(.system) }
         if text.contains("计时器") { return .open(.timer) }
         if text.contains("音乐") { return .open(.music) }
+        if text.contains("工作台") { return .open(.workspace) }
+        if text.contains("待办") { return .open(.todos) }
+        if text.contains("随笔") || text.contains("笔记") { return .open(.notes) }
+        if text.contains("链接") || text.contains("收藏") { return .open(.links) }
+        if text.contains("剪贴板") { return .open(.clipboard) }
+        if text.contains("录音") || text.contains("录制") { return .open(.recordings) }
+        if text.contains("镜子") || text.contains("摄像头") { return .open(.mirror) }
+        if text.contains("保险箱") || text.contains("密钥") || text.contains("密码库") { return .open(.vault) }
         return nil
+    }
+
+    private static func explicitPayload(from text: String, prefixes: [String]) -> String? {
+        guard let prefix = prefixes.first(where: text.hasPrefix) else { return nil }
+        let payload = text
+            .dropFirst(prefix.count)
+            .trimmingCharacters(in: CharacterSet(charactersIn: " ：:，,"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !payload.isEmpty else { return nil }
+        return String(payload.prefix(160))
     }
 
     private static func timerAction(from text: String) -> PetTimerAction? {

@@ -50,6 +50,27 @@ final class PetToolRouterTests: XCTestCase {
         XCTAssertEqual(PetToolRouter.command(from: "让我看看文件架"), .open(.files))
         XCTAssertEqual(PetToolRouter.command(from: "查看系统状态"), .open(.system))
         XCTAssertEqual(PetToolRouter.command(from: "带我去设置"), .open(.settings))
+        XCTAssertEqual(PetToolRouter.command(from: "打开工作台"), .open(.workspace))
+        XCTAssertEqual(PetToolRouter.command(from: "查看待办"), .open(.todos))
+        XCTAssertEqual(PetToolRouter.command(from: "打开随笔"), .open(.notes))
+        XCTAssertEqual(PetToolRouter.command(from: "看看收藏链接"), .open(.links))
+        XCTAssertEqual(PetToolRouter.command(from: "查看剪贴板"), .open(.clipboard))
+        XCTAssertEqual(PetToolRouter.command(from: "打开录音"), .open(.recordings))
+        XCTAssertEqual(PetToolRouter.command(from: "打开镜子"), .open(.mirror))
+        XCTAssertEqual(PetToolRouter.command(from: "查看保险箱"), .open(.vault))
+    }
+
+    func testParsesExplicitTodoAndNoteCreationWithoutInterceptingChat() {
+        XCTAssertEqual(
+            PetToolRouter.command(from: "添加待办：下午三点复习"),
+            .addTodo(title: "下午三点复习")
+        )
+        XCTAssertEqual(
+            PetToolRouter.command(from: "记笔记 今天的灵感是刘海与宠物联动"),
+            .addNote(body: "今天的灵感是刘海与宠物联动")
+        )
+        XCTAssertNil(PetToolRouter.command(from: "我的待办事项太多了"))
+        XCTAssertNil(PetToolRouter.command(from: "我在记笔记"))
     }
 
     func testDoesNotOpenAmbiguousTargets() {

@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     var onOpenSettings: (() -> Void)?
+    var onOpenWorkspace: (() -> Void)?
     var onToggleIsland: (() -> Void)?
     var onPauseOneHour: (() -> Void)?
     var onPauseUntilTomorrow: (() -> Void)?
@@ -84,6 +85,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         menu.addItem(actionItem("打开设置…", action: #selector(openSettings), key: ","))
+        menu.addItem(actionItem("打开工作台…", action: #selector(openWorkspace), key: "w"))
 
         let toggleTitle = islandIsExpanded?() == true ? "收起刘海" : "展开刘海"
         let toggle = actionItem(toggleTitle, action: #selector(toggleIsland), key: "")
@@ -170,6 +172,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() { onOpenSettings?() }
+    @objc private func openWorkspace() { onOpenWorkspace?() }
     @objc private func toggleIsland() { onToggleIsland?() }
     @objc private func toggleContinuousVoice() { onToggleContinuousVoice?() }
     @objc private func pauseOneHour() { onPauseOneHour?() }

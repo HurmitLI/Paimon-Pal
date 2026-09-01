@@ -73,6 +73,15 @@
 		A20000000000000000000041 /* listening-loop-transparent-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000045 /* listening-loop-transparent-v2.png */; };
 		A20000000000000000000042 /* speaking-loop-transparent-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000046 /* speaking-loop-transparent-v2.png */; };
 		A20000000000000000000043 /* click-reaction-transparent-v2.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000047 /* click-reaction-transparent-v2.png */; };
+		A20000000000000000000044 /* ProductivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000048 /* ProductivityModels.swift */; };
+		A20000000000000000000045 /* ProductivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000049 /* ProductivityStore.swift */; };
+		A20000000000000000000046 /* AgentCompletionCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004A /* AgentCompletionCenter.swift */; };
+		A20000000000000000000047 /* QuickLauncherController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004B /* QuickLauncherController.swift */; };
+		A20000000000000000000048 /* ProductivityWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004C /* ProductivityWindowController.swift */; };
+		A20000000000000000000049 /* ProductivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004D /* ProductivityTests.swift */; };
+		A2000000000000000000004A /* RecordingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004E /* RecordingController.swift */; };
+		A2000000000000000000004B /* MirrorCameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000004F /* MirrorCameraController.swift */; };
+		A2000000000000000000004C /* CredentialVaultController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000050 /* CredentialVaultController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -157,6 +166,15 @@
 		B20000000000000000000045 /* listening-loop-transparent-v2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "listening-loop-transparent-v2.png"; sourceTree = "<group>"; };
 		B20000000000000000000046 /* speaking-loop-transparent-v2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "speaking-loop-transparent-v2.png"; sourceTree = "<group>"; };
 		B20000000000000000000047 /* click-reaction-transparent-v2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "click-reaction-transparent-v2.png"; sourceTree = "<group>"; };
+		B20000000000000000000048 /* ProductivityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductivityModels.swift; sourceTree = "<group>"; };
+		B20000000000000000000049 /* ProductivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductivityStore.swift; sourceTree = "<group>"; };
+		B2000000000000000000004A /* AgentCompletionCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCompletionCenter.swift; sourceTree = "<group>"; };
+		B2000000000000000000004B /* QuickLauncherController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLauncherController.swift; sourceTree = "<group>"; };
+		B2000000000000000000004C /* ProductivityWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductivityWindowController.swift; sourceTree = "<group>"; };
+		B2000000000000000000004D /* ProductivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductivityTests.swift; sourceTree = "<group>"; };
+		B2000000000000000000004E /* RecordingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingController.swift; sourceTree = "<group>"; };
+		B2000000000000000000004F /* MirrorCameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorCameraController.swift; sourceTree = "<group>"; };
+		B20000000000000000000050 /* CredentialVaultController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialVaultController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -193,6 +211,7 @@
 				920000000000000000000010 /* Settings */,
 				920000000000000000000011 /* MenuBar */,
 				920000000000000000000012 /* Pet */,
+				920000000000000000000016 /* Productivity */,
 				92000000000000000000000B /* Resources */,
 			);
 			path = NotchFlow;
@@ -203,7 +222,7 @@
 		920000000000000000000005 /* Screen */ = {isa = PBXGroup; children = (B20000000000000000000006,); path = Screen; sourceTree = "<group>"; };
 		920000000000000000000006 /* Window */ = {isa = PBXGroup; children = (B20000000000000000000007, B20000000000000000000008, B20000000000000000000011,); path = Window; sourceTree = "<group>"; };
 		920000000000000000000007 /* UI */ = {isa = PBXGroup; children = (B20000000000000000000009, B20000000000000000000015, B2000000000000000000001A, B2000000000000000000001F, B20000000000000000000024,); path = UI; sourceTree = "<group>"; };
-		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D, B20000000000000000000040, B20000000000000000000042,); path = NotchFlowTests; sourceTree = "<group>"; };
+		920000000000000000000008 /* NotchFlowTests */ = {isa = PBXGroup; children = (B2000000000000000000000A, B2000000000000000000000B, B20000000000000000000016, B2000000000000000000001B, B20000000000000000000020, B20000000000000000000025, B2000000000000000000002A, B2000000000000000000002B, B2000000000000000000003D, B20000000000000000000040, B20000000000000000000042, B2000000000000000000004D,); path = NotchFlowTests; sourceTree = "<group>"; };
 		920000000000000000000009 /* Frameworks */ = {isa = PBXGroup; children = (B2000000000000000000000E,); name = Frameworks; sourceTree = "<group>"; };
 		92000000000000000000000A /* Products */ = {isa = PBXGroup; children = (B2000000000000000000000F, B20000000000000000000010,); name = Products; sourceTree = "<group>"; };
 		92000000000000000000000B /* Resources */ = {isa = PBXGroup; children = (B2000000000000000000000C, B2000000000000000000000D, B2000000000000000000003E, B20000000000000000000043,); path = Resources; sourceTree = "<group>"; };
@@ -214,6 +233,7 @@
 		920000000000000000000010 /* Settings */ = {isa = PBXGroup; children = (B20000000000000000000026, B20000000000000000000027, B20000000000000000000028, B2000000000000000000002C,); path = Settings; sourceTree = "<group>"; };
 		920000000000000000000011 /* MenuBar */ = {isa = PBXGroup; children = (B20000000000000000000029,); path = MenuBar; sourceTree = "<group>"; };
 		920000000000000000000012 /* Pet */ = {isa = PBXGroup; children = (B2000000000000000000002D, B2000000000000000000002E, B2000000000000000000002F, B20000000000000000000030, B20000000000000000000039, B2000000000000000000003F, B20000000000000000000041,); path = Pet; sourceTree = "<group>"; };
+		920000000000000000000016 /* Productivity */ = {isa = PBXGroup; children = (B20000000000000000000048, B20000000000000000000049, B2000000000000000000004A, B2000000000000000000004B, B2000000000000000000004C, B2000000000000000000004E, B2000000000000000000004F, B20000000000000000000050,); path = Productivity; sourceTree = "<group>"; };
 		920000000000000000000013 /* PrivatePetAssets */ = {isa = PBXGroup; children = (B20000000000000000000031, B20000000000000000000032, B20000000000000000000033, B20000000000000000000034, B20000000000000000000035, B20000000000000000000036, B20000000000000000000037, B20000000000000000000038, B20000000000000000000044, B20000000000000000000045, B20000000000000000000046, B20000000000000000000047,); path = PrivatePetAssets/Paimon/AnimationDrafts; sourceTree = "<group>"; };
 		920000000000000000000014 /* LocalModelRuntime */ = {isa = PBXGroup; children = (B2000000000000000000003A, B2000000000000000000003B,); path = Tools/LocalModelProbe/.build/arm64-apple-macosx/release; sourceTree = "<group>"; };
 		920000000000000000000015 /* PrivateModelAssets */ = {isa = PBXGroup; children = (B2000000000000000000003C,); path = PrivateModelAssets; sourceTree = "<group>"; };
@@ -317,10 +337,18 @@
 				A2000000000000000000002C,
 				A20000000000000000000035,
 				A2000000000000000000003D,
+				A20000000000000000000044,
+				A20000000000000000000045,
+				A20000000000000000000046,
+				A20000000000000000000047,
+				A20000000000000000000048,
+				A2000000000000000000004A,
+				A2000000000000000000004B,
+				A2000000000000000000004C,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027, A20000000000000000000039, A2000000000000000000003C, A2000000000000000000003E,); runOnlyForDeploymentPostprocessing = 0; };
+		D22000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A2000000000000000000000A, A2000000000000000000000B, A20000000000000000000012, A20000000000000000000017, A2000000000000000000001C, A20000000000000000000021, A20000000000000000000026, A20000000000000000000027, A20000000000000000000039, A2000000000000000000003C, A2000000000000000000003E, A20000000000000000000049,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */

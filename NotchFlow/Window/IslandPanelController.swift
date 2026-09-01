@@ -22,6 +22,7 @@ final class IslandPanelController {
     private var spaceReconcileTask: Task<Void, Never>?
     private var utilityWindowController: UtilityWindowController?
     private var onOpenSettings: (() -> Void)?
+    var onOpenWorkspace: (() -> Void)?
 
     init(
         coordinator: ActivityCoordinator,
@@ -108,6 +109,7 @@ final class IslandPanelController {
             preferences: preferences,
             screenService: screenService,
             onOpenUtilityWindow: { [weak self] section in self?.openUtilityWindow(section) },
+            onOpenWorkspace: { [weak self] in self?.onOpenWorkspace?() },
             onOpenSettings: { [weak self] in self?.onOpenSettings?() }
         )
         .ignoresSafeArea()

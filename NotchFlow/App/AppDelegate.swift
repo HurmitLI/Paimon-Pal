@@ -12,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fileShelfController: FileShelfController?
     private var systemStatusController: SystemStatusController?
     private var timerController: TimerController?
+    private var productivityStore: ProductivityStore?
+    private var productivityWindowController: ProductivityWindowController?
+    private var quickLauncherController: QuickLauncherController?
+    private var agentCompletionCenter: AgentCompletionCenter?
+    private var recordingController: RecordingController?
+    private var mirrorCameraController: MirrorCameraController?
+    private var credentialVaultController: CredentialVaultController?
     private var preferences: AppPreferences?
     private var settingsWindowController: SettingsWindowController?
     private var onboardingWindowController: OnboardingWindowController?
@@ -44,6 +51,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fileShelf = FileShelfController(coordinator: coordinator)
         let systemStatus = SystemStatusController(coordinator: coordinator)
         let timer = TimerController(coordinator: coordinator)
+        let productivityStore = ProductivityStore()
+        let quickLauncher = QuickLauncherController()
+        let agentCompletionCenter = AgentCompletionCenter()
+        let recordingController = RecordingController()
+        let mirrorCameraController = MirrorCameraController()
+        let credentialVaultController = CredentialVaultController()
         let onboardingWindow = OnboardingWindowController(preferences: preferences)
         let settingsWindow = SettingsWindowController(
             preferences: preferences,
@@ -68,18 +81,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             screenService: screenService,
             preferences: preferences
         )
+        let productivityWindow = ProductivityWindowController(
+            store: productivityStore,
+            launcher: quickLauncher,
+            agentCenter: agentCompletionCenter,
+            music: music,
+            fileShelf: fileShelf,
+            systemStatus: systemStatus,
+            timer: timer,
+            recording: recordingController,
+            mirror: mirrorCameraController,
+            vault: credentialVaultController,
+            onOpenUtility: { [weak controller] section in
+                controller?.openUtilityWindow(section)
+            }
+        )
+        controller.onOpenWorkspace = { [weak productivityWindow] in
+            productivityWindow?.show()
+        }
         let localPetModel = LocalPetModelController(
             petPanel: petController,
             timer: timer,
             music: music,
+            productivityStore: productivityStore,
             preferences: preferences,
             onOpenUtilityWindow: { [weak controller] section in
                 controller?.openUtilityWindow(section)
+            },
+            onOpenWorkspace: { [weak productivityWindow] section in
+                productivityWindow?.show(section: section)
             },
             onOpenSettings: { [weak settingsWindow] in
                 settingsWindow?.show()
             }
         )
+        agentCompletionCenter.onEvent = { [weak coordinator, weak petController] event in
+            coordinator?.showTemporaryHUD(
+                IslandActivity(
+                    id: "agent.\(event.source.rawValue)",
+                    kind: .userInteraction,
+                    title: event.title,
+                    detail: event.source.displayName,
+                    systemSymbol: "sparkles"
+                ),
+                duration: .seconds(3)
+            )
+            petController?.finishModelInteractionSuccessfully()
+        }
+        agentCompletionCenter.start()
         let continuousVoice = PetContinuousVoiceController()
         continuousVoice.onTranscriptCommitted = { [weak continuousVoice, weak localPetModel] transcript in
             guard let continuousVoice, let localPetModel else { return }
@@ -109,6 +158,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let statusItem = StatusItemController(preferences: preferences)
         statusItem.onOpenSettings = { [weak settingsWindow] in settingsWindow?.show() }
+        statusItem.onOpenWorkspace = { [weak productivityWindow] in
+            productivityWindow?.show()
+        }
         statusItem.onToggleIsland = { [weak self] in
             self?.panelController?.toggleExpanded()
             self?.statusItemController?.refreshMenu()
@@ -126,6 +178,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.islandIsExpanded = { [weak controller] in controller?.isExpanded ?? false }
 #if DEBUG
         let debugDefaults = UserDefaults.standard
+        let showWorkspaceOnce = debugDefaults.bool(forKey: "debug.workspace.showOnce")
+        let showWorkspace = ProcessInfo.processInfo.environment["NOTCHFLOW_WORKSPACE_AUTOSHOW"] == "1"
+            || showWorkspaceOnce
         let showQuickPromptOnce = debugDefaults.bool(forKey: "debug.pet.showQuickPromptOnce")
         let showConversationOnce = debugDefaults.bool(forKey: "debug.pet.showConversationOnce")
         let runVoiceToolOnce = debugDefaults.bool(forKey: "debug.pet.runVoiceToolOnce")
@@ -134,9 +189,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         debugDefaults.removeObject(forKey: "debug.pet.showConversationOnce")
         debugDefaults.removeObject(forKey: "debug.pet.runVoiceToolOnce")
         debugDefaults.removeObject(forKey: "debug.pet.runPromptOnce")
+        debugDefaults.removeObject(forKey: "debug.workspace.showOnce")
 
         statusItem.onTestLocalModelConversation = { [weak localPetModel] in
             localPetModel?.showConversationPrompt()
+        }
+        if showWorkspace {
+            NSApp.setActivationPolicy(.regular)
+            // Wait until launch setup has retained every controller and the
+            // accessory-to-regular activation-policy transition has settled.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                productivityWindow.show()
+            }
         }
         statusItem.onTogglePetListening = { [weak petController, weak statusItem] in
             petController?.toggleListeningForTesting()
@@ -188,6 +252,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileShelfController = fileShelf
         systemStatusController = systemStatus
         timerController = timer
+        self.productivityStore = productivityStore
+        productivityWindowController = productivityWindow
+        quickLauncherController = quickLauncher
+        self.agentCompletionCenter = agentCompletionCenter
+        self.recordingController = recordingController
+        self.mirrorCameraController = mirrorCameraController
+        self.credentialVaultController = credentialVaultController
         self.preferences = preferences
         settingsWindowController = settingsWindow
         onboardingWindowController = onboardingWindow
@@ -240,6 +311,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         continuousVoiceController?.stop()
         localPetModelController?.stopSpeech()
+        agentCompletionCenter?.stop()
+        recordingController?.stopRecording()
+        mirrorCameraController?.stop()
     }
 
     func openSettings() {
