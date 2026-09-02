@@ -85,7 +85,11 @@ contextBridge.exposeInMainWorld('notchAPI', {
   getPaimonStatus: () => ipcRenderer.invoke('assistant:status'),
   askPaimon: (payload) => ipcRenderer.invoke('assistant:ask', payload),
   speakPaimon: (text) => ipcRenderer.invoke('assistant:speak', text),
+  openPaimonAssistantSurface: (size) => ipcRenderer.invoke('assistant:open-surface', size),
+  resizePaimonAssistantSurface: (size) => ipcRenderer.invoke('assistant:resize-surface', size),
+  closePaimonAssistantSurface: () => ipcRenderer.invoke('assistant:close-surface'),
   onOpenPaimonAssistant: (cb) => subscribe('assistant:open', () => cb()),
+  onClosePaimonAssistant: (cb) => subscribe('assistant:close-request', () => cb()),
   taskNotificationDismissed: (eventId) =>
     ipcRenderer.send('task-notification:dismissed', eventId),
   activateTaskNotification: (eventId) =>

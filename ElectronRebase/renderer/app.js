@@ -604,6 +604,11 @@ async function setMode(expanded) {
   }
 }
 
+window.NotchApp = {
+  setMode,
+  isExpanded: () => isExpanded,
+};
+
 notch.addEventListener('click', (e) => {
   e.stopPropagation();
   setMode(!isExpanded);

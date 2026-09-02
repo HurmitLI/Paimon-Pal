@@ -6,6 +6,8 @@ const WebSocket = require('ws');
 
 const outputDirectory = path.join(__dirname, '..', 'docs', 'qa');
 const cdpPort = Number(process.env.PAIMON_CDP_PORT || 9223);
+const debugCapture = process.env.PAIMON_DEBUG_CAPTURE === '1';
+const trace = (message) => { if (debugCapture) console.error(`[qa] ${message}`); };
 
 async function targets() {
   const response = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
@@ -65,8 +67,17 @@ async function main() {
   const mainClient = await connect(mainTarget);
   const petClient = await connect(petTarget);
   try {
+    trace('connected');
     await mainClient.send('Page.enable');
     await petClient.send('Page.enable');
+    const wasAssistantOnly = await evaluate(mainClient, `document.getElementById('app').classList.contains('assistant-only')`);
+    if (wasAssistantOnly) {
+      await evaluate(mainClient, `document.getElementById('paimon-close').click()`);
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    }
+    await evaluate(mainClient, `window.notchAPI.dockPet()`);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    trace('pet docked');
     const wasExpanded = await evaluate(mainClient, `document.getElementById('app').classList.contains('expanded')`);
     if (wasExpanded) {
       await evaluate(mainClient, `document.querySelector('.topbar').click()`);
@@ -76,30 +87,66 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 850));
     const expanded = await evaluate(mainClient, `document.getElementById('app').classList.contains('expanded')`);
     if (!expanded) throw new Error('notch workspace did not expand');
+    trace('workspace expanded');
     const expandedPath = await capture(mainClient, 'paimon-pal-expanded.png');
 
     await evaluate(mainClient, `document.getElementById('paimon-top-trigger').click()`);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    const assistantDeadline = Date.now() + 4_000;
+    let assistantReady = false;
+    while (Date.now() < assistantDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assistantReady = await evaluate(mainClient, `(() => {
+        const app = document.getElementById('app');
+        const panel = document.getElementById('paimon-assistant');
+        const rect = panel.getBoundingClientRect();
+        return app.classList.contains('assistant-only')
+          && (app.classList.contains('assistant-anchor-left') || app.classList.contains('assistant-anchor-right'))
+          && !panel.hidden
+          && rect.right <= innerWidth
+          && rect.bottom <= innerHeight;
+      })()`);
+      if (assistantReady) break;
+    }
+    if (!assistantReady) throw new Error('assistant-only surface did not open');
+    trace('assistant-only surface opened');
     const assistantVisible = await evaluate(mainClient, `!document.getElementById('paimon-assistant').hidden`);
     if (!assistantVisible) throw new Error('assistant composer did not open');
     const assistantGeometry = await evaluate(mainClient, `(() => {
       const panel = document.getElementById('paimon-assistant').getBoundingClientRect();
-      const trigger = document.getElementById('paimon-top-trigger').getBoundingClientRect();
       return {
         panel: { x: panel.x, y: panel.y, width: panel.width, height: panel.height, right: panel.right, bottom: panel.bottom },
-        trigger: { x: trigger.x, y: trigger.y, width: trigger.width, height: trigger.height, bottom: trigger.bottom },
-        viewport: { width: innerWidth, height: innerHeight }
+        viewport: { x: screenX, y: screenY, width: innerWidth, height: innerHeight },
+        appClass: document.getElementById('app').className,
+        topbarDisplay: getComputedStyle(document.querySelector('.topbar')).display
       };
     })()`);
-    const panelCenter = assistantGeometry.panel.x + assistantGeometry.panel.width / 2;
-    const triggerCenter = assistantGeometry.trigger.x + assistantGeometry.trigger.width / 2;
-    if (Math.abs(panelCenter - triggerCenter) > 2) {
-      throw new Error(`assistant is not anchored to Paimon: ${JSON.stringify(assistantGeometry)}`);
+    const petGeometry = await evaluate(petClient, `({
+      x: screenX,
+      y: screenY,
+      width: innerWidth,
+      height: innerHeight,
+      visible: document.visibilityState === 'visible'
+    })`);
+    if (!assistantGeometry.appClass.includes('assistant-only') || assistantGeometry.appClass.includes('expanded')) {
+      throw new Error(`assistant incorrectly opened the full workspace: ${JSON.stringify(assistantGeometry)}`);
     }
-    if (assistantGeometry.panel.y < assistantGeometry.trigger.bottom || assistantGeometry.panel.right > assistantGeometry.viewport.width - 12) {
-      throw new Error(`assistant escaped the notch workspace: ${JSON.stringify(assistantGeometry)}`);
+    if (assistantGeometry.topbarDisplay !== 'none' || assistantGeometry.viewport.width > 430) {
+      throw new Error(`workspace toolbar leaked into assistant surface: ${JSON.stringify(assistantGeometry)}`);
+    }
+    if (assistantGeometry.panel.x < 0 || assistantGeometry.panel.y < 0
+      || assistantGeometry.panel.right > assistantGeometry.viewport.width
+      || assistantGeometry.panel.bottom > assistantGeometry.viewport.height) {
+      throw new Error(`assistant escaped its compact surface: ${JSON.stringify(assistantGeometry)}`);
+    }
+    const surfaceRight = assistantGeometry.viewport.x + assistantGeometry.viewport.width;
+    const petRight = petGeometry.x + petGeometry.width;
+    const adjacent = Math.abs(assistantGeometry.viewport.x - (petRight - 24)) <= 3
+      || Math.abs(surfaceRight - (petGeometry.x + 24)) <= 3;
+    if (!petGeometry.visible || !adjacent) {
+      throw new Error(`assistant is not adjacent to Paimon: ${JSON.stringify({ assistantGeometry, petGeometry })}`);
     }
     const assistantPath = await capture(mainClient, 'paimon-pal-assistant.png');
+    trace('assistant geometry captured');
 
     await evaluate(mainClient, `(() => {
       const input = document.getElementById('paimon-input');
@@ -109,6 +156,7 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 350));
     const timerReply = await evaluate(mainClient, `document.getElementById('paimon-reply').textContent`);
     if (!/计时已经开始/.test(timerReply)) throw new Error(`timer tool failed: ${timerReply}`);
+    trace('timer tool passed');
     const timerPath = await capture(mainClient, 'paimon-pal-timer-tool.png');
 
     await evaluate(mainClient, `(() => {
@@ -130,6 +178,7 @@ async function main() {
       }
     }
     if (modelReply.trim() !== '2') throw new Error(`local 4B model failed: ${modelReply}`);
+    trace('local model passed');
     const modelPath = await capture(mainClient, 'paimon-pal-local-4b.png');
 
     await evaluate(mainClient, `window.notchAPI.detachPet()`);
@@ -152,11 +201,33 @@ async function main() {
       ttsBytes = Math.floor(ttsResult.base64.length * 3 / 4);
       if (ttsBytes < 20_000) throw new Error(`local TTS output is unexpectedly small: ${ttsBytes}`);
     }
+    await evaluate(mainClient, `document.getElementById('paimon-close').click()`);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await evaluate(petClient, `window.paimonPetAPI.openAssistant()`);
+    const petClickDeadline = Date.now() + 2_000;
+    let petClickAssistant = null;
+    while (Date.now() < petClickDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      petClickAssistant = await evaluate(mainClient, `({
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        expanded: document.getElementById('app').classList.contains('expanded'),
+        toolbarDisplay: getComputedStyle(document.querySelector('.topbar')).display,
+        panelVisible: !document.getElementById('paimon-assistant').hidden,
+        width: innerWidth
+      })`);
+      if (petClickAssistant.assistantOnly && petClickAssistant.panelVisible) break;
+    }
+    if (!petClickAssistant?.assistantOnly || petClickAssistant.expanded
+      || petClickAssistant.toolbarDisplay !== 'none' || petClickAssistant.width > 430) {
+      throw new Error(`pet click opened the wrong surface: ${JSON.stringify(petClickAssistant)}`);
+    }
+    trace('pet click opened only the compact assistant');
     console.log(JSON.stringify({
       ok: true,
       expandedPath,
       assistantPath,
       assistantGeometry,
+      petGeometry,
       timerPath,
       modelPath,
       petPath,
@@ -165,6 +236,7 @@ async function main() {
       petStart,
       petEnd,
       ttsBytes,
+      petClickAssistant,
     }, null, 2));
   } finally {
     mainClient.close();

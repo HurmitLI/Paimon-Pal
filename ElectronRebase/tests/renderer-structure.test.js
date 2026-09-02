@@ -7,6 +7,8 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'app.js'), 'utf8');
 const workspaceJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'workspace.js'), 'utf8');
 const effectsJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'effects.js'), 'utf8');
+const assistantJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'paimon-assistant.js'), 'utf8');
+const stylesCss = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'styles.css'), 'utf8');
 
 test('clipboard rows define both favorite icons before rendering entries', () => {
   assert.match(appJs, /const starOutlineSvg\s*=/);
@@ -67,4 +69,12 @@ test('hidden visual widgets stop presentation-only background work', () => {
   assert.match(effectsJs, /setEnabled/);
   assert.match(effectsJs, /notch:home-modules-changed/);
   assert.match(workspaceJs, /NotchHome\?\.isVisible/);
+});
+
+test('Paimon click opens a compact assistant surface without expanding the workspace', () => {
+  assert.match(assistantJs, /openPaimonAssistantSurface/);
+  assert.match(assistantJs, /assistant-only/);
+  assert.doesNotMatch(assistantJs, /function ensureExpanded/);
+  assert.match(stylesCss, /#app\.assistant-only \.panel > \.topbar/);
+  assert.match(stylesCss, /#app\.assistant-only \.paimon-assistant/);
 });

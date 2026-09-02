@@ -199,6 +199,11 @@ const TAB_SIZES = {
 const EXPANDED_CHROME_Y = 76;
 const SCREEN_MARGIN = 24; // 宽度超屏时两侧保留的安全边
 const COLLAPSE_WATCHDOG_MS = 650;
+const ASSISTANT_SURFACE_WIDTH = 398;
+const ASSISTANT_SURFACE_MIN_HEIGHT = 118;
+const ASSISTANT_SURFACE_MAX_HEIGHT = 318;
+const ASSISTANT_SURFACE_PET_OVERLAP = 24;
+const ASSISTANT_SURFACE_Y_OFFSET = 42;
 
 const CLIP_MAX_ITEMS = 100;
 const CLIP_POLL_INTERVAL_MS = 500;
@@ -253,6 +258,10 @@ let currentTab = 'home';
 let collapseWatchdog = null;
 let collapseGeneration = 0;
 let hideWhenCollapsed = false;
+let assistantSurfaceSize = {
+  width: ASSISTANT_SURFACE_WIDTH,
+  height: ASSISTANT_SURFACE_MIN_HEIGHT,
+};
 let isQuitting = false;
 let mediaPermissionRequests = 0;
 let transientSystemInteractionRequests = 0;
@@ -365,6 +374,47 @@ function getExpandedSize(display) {
   };
 }
 
+function normalizeAssistantSurfaceSize(size = {}) {
+  return {
+    width: Math.min(
+      ASSISTANT_SURFACE_WIDTH,
+      Math.max(320, Math.round(Number(size.width) || ASSISTANT_SURFACE_WIDTH))
+    ),
+    height: Math.min(
+      ASSISTANT_SURFACE_MAX_HEIGHT,
+      Math.max(ASSISTANT_SURFACE_MIN_HEIGHT, Math.round(Number(size.height) || ASSISTANT_SURFACE_MIN_HEIGHT))
+    ),
+  };
+}
+
+function getAssistantAnchorBounds(display) {
+  if (petWindow && !petWindow.isDestroyed() && petWindow.isVisible()) return petWindow.getBounds();
+  return petDockBounds(display || getWindowDisplay());
+}
+
+function getAssistantPlacement(size = assistantSurfaceSize, display) {
+  const normalized = normalizeAssistantSurfaceSize(size);
+  const anchor = getAssistantAnchorBounds(display);
+  const d = display || screen.getDisplayMatching(anchor);
+  const area = d.workArea;
+  const rightX = anchor.x + anchor.width - ASSISTANT_SURFACE_PET_OVERLAP;
+  const leftX = anchor.x - normalized.width + ASSISTANT_SURFACE_PET_OVERLAP;
+  const roomOnRight = area.x + area.width - rightX;
+  const roomOnLeft = anchor.x - area.x + ASSISTANT_SURFACE_PET_OVERLAP;
+  const anchorSide = roomOnRight >= normalized.width || roomOnRight >= roomOnLeft ? 'left' : 'right';
+  const rawX = anchorSide === 'left' ? rightX : leftX;
+  const rawY = anchor.y + ASSISTANT_SURFACE_Y_OFFSET;
+  return {
+    anchorSide,
+    anchor,
+    bounds: {
+      x: Math.min(Math.max(Math.round(rawX), area.x + 8), area.x + area.width - normalized.width - 8),
+      y: Math.min(Math.max(Math.round(rawY), area.y + 8), area.y + area.height - normalized.height - 8),
+      ...normalized,
+    },
+  };
+}
+
 // display 不传时锚定窗口当前所在屏；只有"召唤"类动作（启动/重新居中/显示）才传光标屏。
 // 一律瞬时 setBounds：系统动画 resize 会持续重绘 web 内容（卡顿）。
 // 原生窗口只提供透明画布，用户可见的岛体形变交给渲染层 CSS。
@@ -374,6 +424,7 @@ function getBoundsForMode(mode, display) {
     const { width, height } = getExpandedSize(d);
     return getCenteredBounds(width, height, d);
   }
+  if (mode === 'assistant') return getAssistantPlacement(assistantSurfaceSize, d).bounds;
   return getCenteredBounds(COLLAPSED_WIDTH, getCollapsedHeight(d), d);
 }
 
@@ -399,6 +450,19 @@ function applyMode(mode, display) {
     refreshTrayMenu();
   }
   syncHoverSpacePolling();
+}
+
+function applyAssistantMode(size) {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  cancelCollapseWatchdog();
+  assistantSurfaceSize = normalizeAssistantSurfaceSize(size);
+  const placement = getAssistantPlacement(assistantSurfaceSize);
+  mainWindow.setBounds(placement.bounds);
+  mainWindow.setIgnoreMouseEvents(false);
+  currentMode = 'assistant';
+  hideWhenCollapsed = false;
+  syncHoverSpacePolling();
+  return placement;
 }
 
 // 纯重新定位不能改变收起事务，否则屏幕变化会取消 watchdog 并重新吞掉鼠标。
@@ -1034,6 +1098,9 @@ function createWindow() {
       cameraBlurDeferred = true;
       return;
     }
+    // 派蒙气泡可能在本地模型推理或语音生成时短暂失去焦点；
+    // 不把普通失焦视为关闭，避免回答生成到一半气泡自行消失。用户可点 × 明确收起。
+    if (currentMode === 'assistant') return;
     requestRendererCollapse();
   });
 
@@ -1164,7 +1231,7 @@ function showDockedPet() {
 
 function hideDockedPet() {
   if (!petWindow || petWindow.isDestroyed()) return;
-  if (readPetState().detached || petDragState) return;
+  if (readPetState().detached || petDragState || currentMode === 'assistant') return;
   petWindow.hide();
 }
 
@@ -1172,7 +1239,7 @@ function openPaimonAssistant() {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow();
   hideWhenCollapsed = false;
   if (!mainWindow.isVisible()) mainWindow.show();
-  mainWindow.focus();
+  if (currentMode === 'assistant') mainWindow.focus();
   mainWindow.webContents.send('assistant:open');
 }
 
@@ -1754,6 +1821,38 @@ ipcMain.on('pet:end-drag', (event) => {
 
 ipcMain.on('pet:open-assistant', (event) => {
   if (isPetSender(event)) openPaimonAssistant();
+});
+
+ipcMain.handle('assistant:open-surface', (event, size) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    return { ok: false, error: 'invalid_sender' };
+  }
+  if (!readPetState().detached && (!petWindow || petWindow.isDestroyed() || !petWindow.isVisible())) {
+    showDockedPet();
+  }
+  const placement = applyAssistantMode({ width: ASSISTANT_SURFACE_WIDTH, ...size });
+  mainWindow.show();
+  mainWindow.focus();
+  return { ok: true, anchorSide: placement.anchorSide, bounds: placement.bounds };
+});
+
+ipcMain.handle('assistant:resize-surface', (event, size) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents || currentMode !== 'assistant') {
+    return { ok: false, error: 'assistant_not_open' };
+  }
+  const placement = applyAssistantMode(size);
+  return { ok: true, anchorSide: placement.anchorSide, bounds: placement.bounds };
+});
+
+ipcMain.handle('assistant:close-surface', (event) => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    return { ok: false, error: 'invalid_sender' };
+  }
+  if (currentMode === 'assistant') {
+    applyMode('collapsed');
+    if (!readPetState().detached) hideDockedPet();
+  }
+  return { ok: true };
 });
 
 ipcMain.handle('window:set-mode', async (event, mode) => {

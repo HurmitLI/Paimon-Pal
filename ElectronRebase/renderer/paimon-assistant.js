@@ -1,5 +1,7 @@
 (function initPaimonAssistant() {
   const notch = document.getElementById('notch');
+  const appSurface = document.getElementById('app');
+  const workspacePanel = document.getElementById('panel');
   const trigger = document.getElementById('paimon-top-trigger');
   const panel = document.getElementById('paimon-assistant');
   const closeButton = document.getElementById('paimon-close');
@@ -20,6 +22,9 @@
   let voiceEnabled = false;
   let activeAudio = null;
   let activeAudioUrl = '';
+  let assistantOpen = false;
+  let resizeFrame = 0;
+  let lastSurfaceHeight = 0;
 
   try {
     voiceEnabled = localStorage.getItem('paimon-voice-enabled-v1') === 'true';
@@ -84,27 +89,95 @@
     reply.hidden = !text;
     reply.textContent = text || '';
     reply.dataset.tone = tone;
+    queueAssistantResize();
   }
 
-  async function ensureExpanded() {
-    const app = document.getElementById('app');
-    if (app && app.classList.contains('collapsed')) {
-      notch?.click();
-      await new Promise((resolve) => setTimeout(resolve, 180));
+  function applyAnchorSide(side) {
+    appSurface?.classList.toggle('assistant-anchor-left', side !== 'right');
+    appSurface?.classList.toggle('assistant-anchor-right', side === 'right');
+  }
+
+  function queueAssistantResize() {
+    if (!assistantOpen || panel.hidden || !window.notchAPI?.resizePaimonAssistantSurface) return;
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(async () => {
+      resizeFrame = 0;
+      const height = Math.ceil(panel.getBoundingClientRect().height) + 16;
+      if (!height || Math.abs(height - lastSurfaceHeight) < 2) return;
+      lastSurfaceHeight = height;
+      try {
+        const result = await window.notchAPI.resizePaimonAssistantSurface({ height });
+        if (result?.ok) applyAnchorSide(result.anchorSide);
+      } catch (error) {
+        // 气泡仍可使用；尺寸同步失败不影响本地回答。
+      }
+    });
+  }
+
+  async function enterAssistantSurface() {
+    if (window.NotchApp?.isExpanded?.()) await window.NotchApp.setMode(false);
+    appSurface?.classList.remove('collapsed', 'expanded', 'opening', 'closing');
+    appSurface?.classList.add('assistant-only');
+    if (workspacePanel) {
+      workspacePanel.inert = false;
+      workspacePanel.setAttribute('aria-hidden', 'false');
+    }
+    panel.hidden = false;
+    panel.style.visibility = 'hidden';
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const initialHeight = Math.ceil(panel.getBoundingClientRect().height) + 16;
+    try {
+      const result = await window.notchAPI?.openPaimonAssistantSurface?.({ height: initialHeight });
+      if (!result?.ok) throw new Error(result?.error || 'assistant_surface_failed');
+      applyAnchorSide(result.anchorSide);
+      return { ok: true, height: result.bounds?.height || initialHeight };
+    } catch (error) {
+      panel.hidden = true;
+      panel.style.removeProperty('visibility');
+      appSurface?.classList.remove('assistant-only', 'assistant-anchor-left', 'assistant-anchor-right');
+      appSurface?.classList.add('collapsed');
+      if (workspacePanel) {
+        workspacePanel.inert = true;
+        workspacePanel.setAttribute('aria-hidden', 'true');
+      }
+      return { ok: false };
     }
   }
 
   async function openAssistant() {
-    await ensureExpanded();
-    panel.hidden = false;
+    if (assistantOpen) {
+      input.focus({ preventScroll: true });
+      return;
+    }
+    const surface = await enterAssistantSurface();
+    if (!surface.ok) return;
+    assistantOpen = true;
+    lastSurfaceHeight = surface.height;
+    panel.style.removeProperty('visibility');
     requestAnimationFrame(() => panel.classList.add('is-visible'));
-    setTimeout(() => input.focus({ preventScroll: true }), 40);
+    setTimeout(() => {
+      input.focus({ preventScroll: true });
+      queueAssistantResize();
+    }, 40);
   }
 
   function closeAssistant() {
+    if (!assistantOpen) return;
+    assistantOpen = false;
     stopVoice();
     panel.classList.remove('is-visible');
-    setTimeout(() => { panel.hidden = true; }, 160);
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = 0;
+    setTimeout(async () => {
+      panel.hidden = true;
+      try { await window.notchAPI?.closePaimonAssistantSurface?.(); } catch (error) {}
+      appSurface?.classList.remove('assistant-only', 'assistant-anchor-left', 'assistant-anchor-right');
+      appSurface?.classList.add('collapsed');
+      if (workspacePanel) {
+        workspacePanel.inert = true;
+        workspacePanel.setAttribute('aria-hidden', 'true');
+      }
+    }, 160);
   }
 
   function parseDuration(text) {
@@ -259,8 +332,13 @@
   });
 
   window.notchAPI?.onOpenPaimonAssistant?.(openAssistant);
+  window.notchAPI?.onClosePaimonAssistant?.(closeAssistant);
   window.notchAPI?.getPaimonStatus?.().then((result) => {
     if (modelBadge) modelBadge.textContent = result && result.available ? '本地 4B' : '本地工具';
   }).catch(() => {});
   updateVoiceButton();
+
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(queueAssistantResize).observe(panel);
+  }
 })();
