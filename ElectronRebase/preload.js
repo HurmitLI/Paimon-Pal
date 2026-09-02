@@ -78,6 +78,14 @@ contextBridge.exposeInMainWorld('notchAPI', {
     subscribe('task-notification:hide', (event, eventId) => cb(eventId)),
   onTaskCompletion: (cb) =>
     subscribe('task-completion:new', (event, notification) => cb(notification)),
+  showDockedPet: () => ipcRenderer.invoke('pet:show-docked'),
+  hideDockedPet: () => ipcRenderer.invoke('pet:hide-docked'),
+  detachPet: () => ipcRenderer.invoke('pet:detach'),
+  dockPet: () => ipcRenderer.invoke('pet:dock'),
+  getPaimonStatus: () => ipcRenderer.invoke('assistant:status'),
+  askPaimon: (payload) => ipcRenderer.invoke('assistant:ask', payload),
+  speakPaimon: (text) => ipcRenderer.invoke('assistant:speak', text),
+  onOpenPaimonAssistant: (cb) => subscribe('assistant:open', () => cb()),
   taskNotificationDismissed: (eventId) =>
     ipcRenderer.send('task-notification:dismissed', eventId),
   activateTaskNotification: (eventId) =>

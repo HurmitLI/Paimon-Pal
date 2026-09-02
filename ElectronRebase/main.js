@@ -52,11 +52,10 @@ const {
   reduceClipboardObservation,
 } = require('./main-services');
 
-// Keep the historical data directory so upgrading users retain notes, links,
-// recordings and encrypted settings after the public product rename.
-const LEGACY_USER_DATA_PATH = path.join(app.getPath('appData'), 'Dynamic Panel');
-app.setName('TO-DO Panel');
-app.setPath('userData', LEGACY_USER_DATA_PATH);
+// Electron 重构版使用独立数据目录，避免覆盖仍作为回滚备份保留的原生 Swift 版。
+const PAIMON_USER_DATA_PATH = path.join(app.getPath('appData'), 'Paimon Pal Electron');
+app.setName('Paimon Pal');
+app.setPath('userData', PAIMON_USER_DATA_PATH);
 
 // ============ 托盘图标 PNG 生成 ============
 // 直接在主进程编码 PNG，避免引入额外资源文件
@@ -160,9 +159,16 @@ function makeNotchPng(scale) {
 }
 
 function createNotchTrayIcon() {
-  const png2x = makeNotchPng(2);
-  const icon = nativeImage.createFromBuffer(png2x, { scaleFactor: 2 });
-  icon.setTemplateImage(true);
+  const portraitPath = path.join(__dirname, 'build', 'paimon-menubar-source.png');
+  const source = nativeImage.createFromPath(portraitPath);
+  if (source.isEmpty()) {
+    const png2x = makeNotchPng(2);
+    const fallback = nativeImage.createFromBuffer(png2x, { scaleFactor: 2 });
+    fallback.setTemplateImage(true);
+    return fallback;
+  }
+  const icon = source.resize({ width: 19, height: 19, quality: 'best' });
+  icon.setTemplateImage(false);
   return icon;
 }
 
@@ -208,6 +214,11 @@ const APP_SETTINGS_FILE = 'app-settings.json';
 const WORKSPACE_SETTINGS_FILE = 'workspace-settings.json';
 const WORKSPACE_DATA_FILE = 'workspace.json';
 const MIRROR_IMAGE_FILE = 'mirror-cover.jpg';
+const PET_STATE_FILE = 'paimon-pet-state.json';
+const PET_WIDTH = 228;
+const PET_HEIGHT = 244;
+const PET_DOCK_THRESHOLD_X = 150;
+const PET_DOCK_THRESHOLD_Y = 130;
 const workspacePersistenceGate = createWorkspacePersistenceGate();
 const SODA_MUSIC_APP = '/Applications/汽水音乐.app';
 const TRANSCRIPTION_MODEL = 'qwen3-asr-flash-realtime';
@@ -234,6 +245,9 @@ const TODO_REMINDER_LEAD_MS = 60 * 60 * 1000;
 
 let mainWindow = null;
 let tray = null;
+let petWindow = null;
+let petDragState = null;
+let activeTtsProcess = null;
 let currentMode = 'collapsed';
 let currentTab = 'home';
 let collapseWatchdog = null;
@@ -377,6 +391,7 @@ function applyMode(mode, display) {
   mainWindow.setBounds(getBoundsForMode(mode, display));
   mainWindow.setIgnoreMouseEvents(false);
   currentMode = mode;
+  if (mode === 'expanded') hideDockedPet();
   if (mode === 'expanded') hideWhenCollapsed = false;
   if (mode === 'collapsed' && hideWhenCollapsed) {
     hideWhenCollapsed = false;
@@ -1048,6 +1063,119 @@ function createWindow() {
   });
 }
 
+function normalizePetState(raw) {
+  return {
+    detached: raw && raw.detached === true,
+    x: Number.isFinite(raw && raw.x) ? Math.round(raw.x) : null,
+    y: Number.isFinite(raw && raw.y) ? Math.round(raw.y) : null,
+  };
+}
+
+function readPetState() {
+  return normalizePetState(readJsonFile(getJsonSettingsPath(PET_STATE_FILE)));
+}
+
+function savePetState(state) {
+  return writeJsonFile(getJsonSettingsPath(PET_STATE_FILE), normalizePetState(state));
+}
+
+function petDockBounds(display) {
+  const d = display || getTargetDisplay();
+  return {
+    x: Math.round(d.bounds.x + (d.bounds.width - PET_WIDTH) / 2),
+    y: Math.round(d.bounds.y + getCollapsedHeight(d) - 8),
+    width: PET_WIDTH,
+    height: PET_HEIGHT,
+  };
+}
+
+function clampPetBounds(bounds, display) {
+  const d = display || screen.getDisplayMatching(bounds);
+  const area = d.workArea;
+  return {
+    x: Math.min(Math.max(Math.round(bounds.x), area.x), area.x + area.width - PET_WIDTH),
+    y: Math.min(Math.max(Math.round(bounds.y), area.y), area.y + area.height - PET_HEIGHT),
+    width: PET_WIDTH,
+    height: PET_HEIGHT,
+  };
+}
+
+function sendPetMode(mode, docked = false) {
+  if (!petWindow || petWindow.isDestroyed()) return;
+  petWindow.webContents.send('pet:mode', { mode, docked });
+}
+
+function createPetWindow() {
+  if (petWindow && !petWindow.isDestroyed()) return petWindow;
+  const state = readPetState();
+  const initial = state.detached && state.x !== null && state.y !== null
+    ? clampPetBounds({ x: state.x, y: state.y, width: PET_WIDTH, height: PET_HEIGHT })
+    : petDockBounds(getTargetDisplay());
+  petWindow = new BrowserWindow({
+    ...initial,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    resizable: false,
+    movable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    acceptFirstMouse: true,
+    hiddenInMissionControl: true,
+    fullscreenable: false,
+    minimizable: false,
+    maximizable: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-pet.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  installLocalWebContentsGuards(petWindow.webContents);
+  petWindow.setAlwaysOnTop(true, 'floating');
+  petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  petWindow.loadFile(path.join(__dirname, 'renderer', 'pet.html'));
+  petWindow.once('ready-to-show', () => {
+    const latest = readPetState();
+    if (latest.detached) {
+      petWindow.showInactive();
+      sendPetMode('idle', false);
+    }
+  });
+  petWindow.on('closed', () => {
+    petWindow = null;
+    petDragState = null;
+  });
+  return petWindow;
+}
+
+function showDockedPet() {
+  const state = readPetState();
+  if (state.detached || currentMode === 'expanded') return { shown: false, detached: state.detached };
+  const win = createPetWindow();
+  win.setBounds(petDockBounds(getWindowDisplay()));
+  win.showInactive();
+  sendPetMode('idle', true);
+  return { shown: true, detached: false };
+}
+
+function hideDockedPet() {
+  if (!petWindow || petWindow.isDestroyed()) return;
+  if (readPetState().detached || petDragState) return;
+  petWindow.hide();
+}
+
+function openPaimonAssistant() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  hideWhenCollapsed = false;
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('assistant:open');
+}
+
 function toggleVisibility() {
   if (!mainWindow) {
     createWindow();
@@ -1187,7 +1315,7 @@ function copyWorkspaceAssets(sourceRoot, targetRoot) {
 
 async function chooseWorkspaceFolder() {
   const result = await showOwnedOpenDialog({
-    title: '选择 TO-DO Panel 数据文件夹',
+    title: '选择 Paimon Pal 数据文件夹',
     properties: ['openDirectory', 'createDirectory'],
   });
   const selected = !result.canceled && result.filePaths && result.filePaths[0];
@@ -1371,11 +1499,11 @@ function refreshTrayMenu() {
       click: () => {
         dialog.showMessageBox({
           type: 'info',
-          title: '关于 TO-DO Panel',
-          message: 'TO-DO Panel',
+          title: '关于 Paimon Pal',
+          message: 'Paimon Pal',
           detail:
-            `版本 ${app.getVersion()}\n\n一个开源、常驻 macOS 屏幕顶部的本地工作台。工作区数据默认保存在本机；账号密码与 API Key 由 macOS 安全存储加密。\n\nMIT License`,
-          buttons: ['查看 GitHub', '好'],
+            `版本 ${app.getVersion()}\n\n住在 MacBook 刘海旁的本地派蒙伙伴与生产力工作台。工作区和模型对话默认只在本机处理。\n\n工作台基于 xiaopu-ai 的 TO-DO Panel（MIT）改造。`,
+          buttons: ['查看上游项目', '好'],
           defaultId: 1,
           cancelId: 1,
           noLink: true,
@@ -1396,7 +1524,7 @@ function refreshTrayMenu() {
 
 function createTray() {
   tray = new Tray(createNotchTrayIcon());
-  tray.setToolTip('TO-DO Panel');
+  tray.setToolTip('Paimon Pal');
   tray.on('click', () => {
     if (!mainWindow) return;
     if (!mainWindow.isVisible()) {
@@ -1409,6 +1537,225 @@ function createTray() {
   refreshTrayMenu();
 }
 
+function localModelRuntime() {
+  if (app.isPackaged) {
+    return {
+      executable: path.join(process.resourcesPath, 'PaimonModel', 'notchflow-model-probe'),
+      modelDirectory: path.join(process.resourcesPath, 'PaimonModel', 'Qwen3-4B-Instruct-2507-4bit'),
+      workingDirectory: path.join(process.resourcesPath, 'PaimonModel'),
+    };
+  }
+  const projectRoot = path.resolve(__dirname, '..');
+  const workingDirectory = path.join(
+    projectRoot,
+    'Tools',
+    'LocalModelProbe',
+    '.build',
+    'arm64-apple-macosx',
+    'release'
+  );
+  return {
+    executable: path.join(workingDirectory, 'notchflow-model-probe'),
+    modelDirectory: path.join(projectRoot, 'PrivateModelAssets', 'Qwen3-4B-Instruct-2507-4bit'),
+    workingDirectory,
+  };
+}
+
+function localModelAvailability() {
+  const runtime = localModelRuntime();
+  return {
+    available: fs.existsSync(runtime.executable) && fs.existsSync(runtime.modelDirectory),
+    model: 'Qwen3-4B-Instruct-2507-4bit',
+  };
+}
+
+function extractModelResponse(output) {
+  const startMarker = 'RESPONSE_BEGIN\n';
+  const endMarker = '\nRESPONSE_END';
+  const start = output.indexOf(startMarker);
+  if (start < 0) throw new Error('invalid_response');
+  const bodyStart = start + startMarker.length;
+  const end = output.indexOf(endMarker, bodyStart);
+  if (end < 0) throw new Error('invalid_response');
+  const reply = output.slice(bodyStart, end).trim();
+  if (!reply) throw new Error('empty_response');
+  return reply;
+}
+
+function askLocalPaimon(payload) {
+  const prompt = String(payload && payload.prompt || '').trim().slice(0, 1200);
+  const history = Array.isArray(payload && payload.history)
+    ? payload.history.slice(-6).map((item) => ({
+      role: item && item.role === 'assistant' ? 'assistant' : 'user',
+      content: String(item && item.content || '').trim().slice(0, 800),
+    })).filter((item) => item.content)
+    : [];
+  if (!prompt) return Promise.resolve({ ok: false, error: 'empty_prompt' });
+  const runtime = localModelRuntime();
+  if (!fs.existsSync(runtime.executable) || !fs.existsSync(runtime.modelDirectory)) {
+    return Promise.resolve({ ok: false, error: 'model_unavailable' });
+  }
+  const request = Buffer.from(JSON.stringify({ history, prompt, enableThinking: false }), 'utf8').toString('base64');
+  return new Promise((resolve) => {
+    execFile(
+      runtime.executable,
+      [runtime.modelDirectory, '--request-base64', request],
+      {
+        cwd: runtime.workingDirectory,
+        timeout: 180_000,
+        maxBuffer: 2 * 1024 * 1024,
+        env: {
+          ...process.env,
+          HF_HUB_OFFLINE: '1',
+          TRANSFORMERS_OFFLINE: '1',
+          TOKENIZERS_PARALLELISM: 'false',
+        },
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.warn(`Paimon local model failed: ${String(stderr || error.message).trim()}`);
+          resolve({ ok: false, error: error.killed ? 'model_timeout' : 'model_failed' });
+          return;
+        }
+        try {
+          resolve({ ok: true, reply: extractModelResponse(String(stdout || '')) });
+        } catch (parseError) {
+          resolve({ ok: false, error: 'invalid_response' });
+        }
+      }
+    );
+  });
+}
+
+function paimonTtsRuntime() {
+  const root = app.isPackaged
+    ? path.join(process.resourcesPath, 'PaimonTTS')
+    : path.resolve(
+      __dirname,
+      '..',
+      'build',
+      'PaimonPalLocalDMGData',
+      'Build',
+      'Products',
+      'Release',
+      'NotchFlow.app',
+      'Contents',
+      'Resources',
+      'PaimonTTS'
+    );
+  return {
+    root,
+    python: path.join(root, 'Runtime', 'Python', 'bin', 'python3.12'),
+    pythonHome: path.join(root, 'Runtime', 'Python'),
+    pythonPath: path.join(root, 'Runtime', 'SitePackages'),
+    script: path.join(root, 'Runtime', 'paimon_tts_runtime.py'),
+    model: path.join(root, 'Model'),
+    reference: path.join(root, 'VoiceReference.wav'),
+  };
+}
+
+function speakLocalPaimon(rawText) {
+  const text = String(rawText || '')
+    .replace(/^\s*旅行者[，,。.!！?？:：\s]*/u, '')
+    .trim()
+    .slice(0, 220);
+  if (!text) return Promise.resolve({ ok: false, error: 'empty_text' });
+  const runtime = paimonTtsRuntime();
+  const required = [runtime.python, runtime.script, runtime.model, runtime.reference];
+  if (required.some((item) => !fs.existsSync(item))) {
+    return Promise.resolve({ ok: false, error: 'tts_unavailable' });
+  }
+  if (activeTtsProcess) {
+    activeTtsProcess.kill('SIGTERM');
+    activeTtsProcess = null;
+  }
+  const outputDirectory = path.join(app.getPath('temp'), 'PaimonPalTTS');
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  const outputPath = path.join(outputDirectory, `reply-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.wav`);
+  return new Promise((resolve) => {
+    const child = execFile(
+      runtime.python,
+      [runtime.script, '--model', runtime.model, '--reference', runtime.reference, '--output', outputPath, '--text', text],
+      {
+        cwd: runtime.root,
+        timeout: 240_000,
+        maxBuffer: 2 * 1024 * 1024,
+        env: {
+          ...process.env,
+          PYTHONHOME: runtime.pythonHome,
+          PYTHONPATH: runtime.pythonPath,
+          PYTHONDONTWRITEBYTECODE: '1',
+          HF_HUB_OFFLINE: '1',
+          TRANSFORMERS_OFFLINE: '1',
+          TOKENIZERS_PARALLELISM: 'false',
+        },
+      },
+      (error, stdout, stderr) => {
+        if (activeTtsProcess === child) activeTtsProcess = null;
+        if (error || !fs.existsSync(outputPath)) {
+          console.warn(`Paimon TTS failed: ${String(stderr || error && error.message || '').trim()}`);
+          resolve({ ok: false, error: error && error.killed ? 'tts_timeout' : 'tts_failed' });
+          return;
+        }
+        try {
+          const audio = fs.readFileSync(outputPath);
+          fs.unlinkSync(outputPath);
+          resolve({ ok: true, mimeType: 'audio/wav', base64: audio.toString('base64') });
+        } catch (readError) {
+          resolve({ ok: false, error: 'tts_read_failed' });
+        }
+      }
+    );
+    activeTtsProcess = child;
+  });
+}
+
+function isPetSender(event) {
+  return Boolean(petWindow && !petWindow.isDestroyed() && event.sender === petWindow.webContents);
+}
+
+ipcMain.on('pet:begin-drag', (event, point) => {
+  if (!isPetSender(event) || !point || !Number.isFinite(point.screenX) || !Number.isFinite(point.screenY)) return;
+  petDragState = { startX: point.screenX, startY: point.screenY, bounds: petWindow.getBounds() };
+});
+
+ipcMain.on('pet:drag-to', (event, point) => {
+  if (!isPetSender(event) || !petDragState || !point || !Number.isFinite(point.screenX) || !Number.isFinite(point.screenY)) return;
+  const next = clampPetBounds({
+    x: petDragState.bounds.x + point.screenX - petDragState.startX,
+    y: petDragState.bounds.y + point.screenY - petDragState.startY,
+    width: PET_WIDTH,
+    height: PET_HEIGHT,
+  });
+  petWindow.setBounds(next);
+});
+
+ipcMain.on('pet:end-drag', (event) => {
+  if (!isPetSender(event) || !petDragState) return;
+  petDragState = null;
+  const bounds = petWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const centerX = bounds.x + bounds.width / 2;
+  const screenCenterX = display.bounds.x + display.bounds.width / 2;
+  const nearNotch = Math.abs(centerX - screenCenterX) <= PET_DOCK_THRESHOLD_X
+    && bounds.y <= display.bounds.y + getCollapsedHeight(display) + PET_DOCK_THRESHOLD_Y;
+  if (nearNotch) {
+    savePetState({ detached: false, x: null, y: null });
+    petWindow.setBounds(petDockBounds(display));
+    sendPetMode('docking', true);
+    setTimeout(() => hideDockedPet(), 280);
+    return;
+  }
+  const clamped = clampPetBounds(bounds, display);
+  petWindow.setBounds(clamped);
+  savePetState({ detached: true, x: clamped.x, y: clamped.y });
+  sendPetMode('idle', false);
+});
+
+ipcMain.on('pet:open-assistant', (event) => {
+  if (isPetSender(event)) openPaimonAssistant();
+});
+
 ipcMain.handle('window:set-mode', async (event, mode) => {
   if (mode === 'expanded') await rememberPasteTarget();
   applyMode(mode === 'expanded' ? 'expanded' : 'collapsed');
@@ -1417,6 +1764,39 @@ ipcMain.handle('window:set-mode', async (event, mode) => {
 ipcMain.handle('window:begin-collapse', () => {
   beginNativeCollapse();
 });
+
+ipcMain.handle('pet:show-docked', () => showDockedPet());
+ipcMain.handle('pet:hide-docked', () => {
+  hideDockedPet();
+  return { ok: true };
+});
+ipcMain.handle('pet:detach', () => {
+  const win = createPetWindow();
+  const display = getWindowDisplay();
+  const target = clampPetBounds({
+    x: Math.round(display.workArea.x + display.workArea.width * 0.72),
+    y: Math.round(display.workArea.y + display.workArea.height * 0.32),
+    width: PET_WIDTH,
+    height: PET_HEIGHT,
+  }, display);
+  savePetState({ detached: true, x: target.x, y: target.y });
+  win.setBounds(target);
+  win.showInactive();
+  sendPetMode('idle', false);
+  return { ok: true, detached: true };
+});
+ipcMain.handle('pet:dock', () => {
+  savePetState({ detached: false, x: null, y: null });
+  if (petWindow && !petWindow.isDestroyed()) {
+    petWindow.setBounds(petDockBounds(getWindowDisplay()));
+    sendPetMode('docking', true);
+    setTimeout(() => hideDockedPet(), 280);
+  }
+  return { ok: true, detached: false };
+});
+ipcMain.handle('assistant:status', () => localModelAvailability());
+ipcMain.handle('assistant:ask', (event, payload) => askLocalPaimon(payload));
+ipcMain.handle('assistant:speak', (event, text) => speakLocalPaimon(text));
 
 ipcMain.handle('settings:get', () => publicAppSettings());
 ipcMain.handle('settings:set-feature', (event, payload) => {
@@ -1623,11 +2003,11 @@ async function promptForMissingPermissions() {
   const names = missing.map((key) => (key === 'accessibility' ? '辅助功能' : '屏幕录制'));
   const { response, checkboxChecked } = await dialog.showMessageBox({
     type: 'info',
-    message: `TO-DO Panel 需要「${names.join('」和「')}」权限`,
+    message: `Paimon Pal 需要「${names.join('」和「')}」权限`,
     detail: [
       '缺少这些权限时，「当前窗口」会读不到任何窗口，汽水音乐的播放控制也不会生效。',
       '',
-      '授权后需要重新启动 TO-DO Panel 才会生效。',
+      '授权后需要重新启动 Paimon Pal 才会生效。',
       'ad-hoc 签名的应用每次重新打包都要重新授权一次，这是没有开发者账号分发的固有限制。',
     ].join('\n'),
     buttons: ['打开系统设置', '以后再说'],
@@ -2450,7 +2830,6 @@ function getTranscriptionSettingsPath() {
 
 function readStoredTranscriptionSettings() {
   const currentPath = getTranscriptionSettingsPath();
-  const legacyPath = path.join(app.getPath('appData'), 'notch-todo', TRANSCRIPTION_SETTINGS_FILE);
   const readSettings = (settingsPath) => {
     try {
       const value = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
@@ -2459,18 +2838,10 @@ function readStoredTranscriptionSettings() {
       return {};
     }
   };
-  const current = readSettings(currentPath);
-  const legacy = currentPath === legacyPath ? {} : readSettings(legacyPath);
-  const selected = selectTranscriptionSettings(current, legacy);
-  if (!Object.keys(current).length && Object.keys(selected).length && currentPath !== legacyPath) {
-    try {
-      fs.mkdirSync(path.dirname(currentPath), { recursive: true });
-      fs.writeFileSync(currentPath, JSON.stringify(selected), { mode: 0o600 });
-    } catch (error) {
-      // 迁移失败时仍从旧目录读取，避免已有密钥突然失效。
-    }
-  }
-  return selected;
+  // Paimon Pal 使用独立的本地数据域。不能自动读取 TO-DO Panel 的旧密钥：
+  // 新应用签名解密旧 safeStorage 数据会连续触发 macOS 钥匙串询问，也会把
+  // 上游应用的第三方服务配置带入派蒙。联网模型需要在派蒙设置里重新填写。
+  return readSettings(currentPath);
 }
 
 function decryptStoredApiKey(settings) {
@@ -3249,6 +3620,7 @@ app.whenReady().then(() => {
 
   ensureFirstRunAutoLaunch();
   createWindow();
+  createPetWindow();
   createTray();
   watchDisplayChanges();
   ensureClipImagesDir();
@@ -3278,7 +3650,9 @@ app.on('will-quit', () => {
   stopHoverSpaceShortcut();
   clearTaskNotificationTimers();
   stopTaskNotificationServer();
+  if (petWindow && !petWindow.isDestroyed()) petWindow.destroy();
   closeAllTranscriptionSessions();
+  if (activeTtsProcess) activeTtsProcess.kill('SIGTERM');
   globalShortcut.unregisterAll();
   stopClipboardPolling();
 });

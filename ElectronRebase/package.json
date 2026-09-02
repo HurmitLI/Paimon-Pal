@@ -1,12 +1,12 @@
 {
-  "name": "to-do-panel",
-  "version": "1.0.5",
-  "description": "TO-DO Panel - a local workspace that lives under the Mac notch",
+  "name": "paimon-pal",
+  "version": "0.5.0",
+  "description": "Paimon Pal - a local AI companion and workspace that lives under the MacBook notch",
   "main": "main.js",
   "author": "xiaopu-ai",
   "license": "MIT",
   "scripts": {
-    "test": "node --test tests/*.test.js && env -u ELECTRON_RUN_AS_NODE electron tests/notch-focus.electron.js && node --check main.js && node --check main-services.js && node --check preload.js && node --check renderer/domain.js && node --check renderer/effects.js && node --check renderer/app.js && node --check renderer/workspace.js && node --check renderer/icon-motion.js && node --check renderer/notification.js && node --check build/afterPack.js && node --check scripts/codex-notify.js && node --check scripts/claude-notify.js",
+    "test": "node --test tests/*.test.js && env -u ELECTRON_RUN_AS_NODE electron tests/notch-focus.electron.js && node --check main.js && node --check main-services.js && node --check preload.js && node --check preload-pet.js && node --check renderer/domain.js && node --check renderer/effects.js && node --check renderer/app.js && node --check renderer/paimon-assistant.js && node --check renderer/pet.js && node --check renderer/workspace.js && node --check renderer/icon-motion.js && node --check renderer/notification.js && node --check build/afterPack.js && node --check scripts/codex-notify.js && node --check scripts/claude-notify.js",
     "start": "electron .",
     "build": "electron-builder --mac dmg --publish never",
     "build:zip": "electron-builder --mac zip",
@@ -17,22 +17,24 @@
     "electron-builder": "^26.15.7"
   },
   "build": {
-    "appId": "com.dynamicpanel.app",
-    "productName": "TO-DO Panel",
-    "artifactName": "TO-DO-Panel-${version}-${arch}.${ext}",
-    "copyright": "© 2026 xiaopu-ai",
-    "asar": false,
+    "appId": "com.paimonpal.notchworkspace",
+    "productName": "Paimon Pal",
+    "artifactName": "Paimon-Pal-${version}-${arch}.${ext}",
+    "copyright": "© 2026 Paimon Pal contributors; workspace based on TO-DO Panel by xiaopu-ai",
+    "asar": true,
     "directories": {
       "output": "dist.noindex",
       "buildResources": "build"
     },
-    "electronDist": "node_modules/electron/dist",
     "afterPack": "./build/afterPack.js",
     "files": [
       "main.js",
       "main-services.js",
       "preload.js",
+      "preload-pet.js",
       "renderer/**/*",
+      "THIRD_PARTY_NOTICES.md",
+      "build/paimon-menubar-source.png",
       "scripts/codex-notify.js",
       "scripts/claude-notify.js",
       "package.json",
@@ -41,8 +43,26 @@
       "!**/node_modules/.bin",
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}"
     ],
+    "extraResources": [
+      {
+        "from": "../Tools/LocalModelProbe/.build/arm64-apple-macosx/release/notchflow-model-probe",
+        "to": "PaimonModel/notchflow-model-probe"
+      },
+      {
+        "from": "../Tools/LocalModelProbe/.build/arm64-apple-macosx/release/mlx.metallib",
+        "to": "PaimonModel/mlx.metallib"
+      },
+      {
+        "from": "../PrivateModelAssets/Qwen3-4B-Instruct-2507-4bit",
+        "to": "PaimonModel/Qwen3-4B-Instruct-2507-4bit"
+      },
+      {
+        "from": "../build/PaimonPalLocalDMGData/Build/Products/Release/NotchFlow.app/Contents/Resources/PaimonTTS",
+        "to": "PaimonTTS"
+      }
+    ],
     "mac": {
-      "icon": "build/to-do-panel-icon.icns",
+      "icon": "build/paimon-pal-icon.icns",
       "category": "public.app-category.productivity",
       "minimumSystemVersion": "13.0",
       "target": [
@@ -61,14 +81,15 @@
       "extendInfo": {
         "LSUIElement": true,
         "NSHighResolutionCapable": true,
-        "CFBundleDisplayName": "TO-DO Panel",
-        "NSCameraUsageDescription": "TO-DO Panel 需要使用摄像头来显示「镜子」预览。",
-        "NSMicrophoneUsageDescription": "TO-DO Panel 需要使用麦克风来录音并生成转写文本。",
-        "NSAppleEventsUsageDescription": "TO-DO Panel 需要控制「系统事件」来枚举并聚焦当前窗口、发送汽水音乐快捷键。"
+        "CFBundleDisplayName": "Paimon Pal",
+        "NSCameraUsageDescription": "Paimon Pal 需要使用摄像头来显示「镜子」预览。",
+        "NSMicrophoneUsageDescription": "Paimon Pal 只会在你主动点击录音或语音对话时使用麦克风。",
+        "NSSpeechRecognitionUsageDescription": "Paimon Pal 只会在你主动开启语音对话时进行本机语音识别。",
+        "NSAppleEventsUsageDescription": "Paimon Pal 需要控制「系统事件」来枚举并聚焦当前窗口、发送音乐快捷键。"
       }
     },
     "dmg": {
-      "title": "TO-DO Panel ${version}",
+      "title": "Paimon Pal ${version}",
       "iconSize": 100,
       "contents": [
         {

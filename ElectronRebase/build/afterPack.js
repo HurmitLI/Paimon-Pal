@@ -53,9 +53,21 @@ exports.default = async function afterPack(context) {
   };
 
   const fwDir = path.join(appPath, 'Contents', 'Frameworks');
+  const resourcesDir = path.join(appPath, 'Contents', 'Resources');
 
   // 1) 所有 dylib
   walk(fwDir, (n) => n.endsWith('.dylib'), cs);
+
+  // 1b) Paimon Pal 内置 MLX / Python 运行时的原生动态库。
+  // 它们位于 Resources 而不是 Electron Frameworks；漏签会导致打包版模型
+  // 和 TTS 在开发态正常、安装后却被 hardened runtime 拒绝载入。
+  walk(resourcesDir, (n) => n.endsWith('.dylib') || n.endsWith('.so'), cs);
+  for (const executable of [
+    path.join(resourcesDir, 'PaimonModel', 'notchflow-model-probe'),
+    path.join(resourcesDir, 'PaimonTTS', 'Runtime', 'Python', 'bin', 'python3.12'),
+  ]) {
+    if (fs.existsSync(executable)) cs(executable, true);
+  }
 
   // 2) Electron Framework 内部的 Helpers (chrome_crashpad_handler 等)
   const efw = path.join(fwDir, 'Electron Framework.framework', 'Versions', 'A', 'Helpers');

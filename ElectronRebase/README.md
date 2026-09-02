@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="build/to-do-panel-icon.png" width="112" alt="TO-DO Panel 图标" />
-  <h1>TO-DO Panel</h1>
-  <p><strong>把 Mac 刘海，变成随手可用的工作台。</strong></p>
-  <p>待办、随笔记、链接、录音与本机 AI 提醒，始终贴顶待命。</p>
+  <img src="build/paimon-pal-icon-1024.png" width="112" alt="Paimon Pal 图标" />
+  <h1>Paimon Pal</h1>
+  <p><strong>住在 MacBook 刘海旁的本地派蒙伙伴与生产力工作台。</strong></p>
+  <p>桌面宠物、本地 4B 对话、计时与工具，和待办、笔记、链接、录音一起收进刘海。</p>
   <p>
-    <a href="https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest"><strong>下载 macOS 版</strong></a>
+    <a href="#下载与安装"><strong>安装本地课程版</strong></a>
     ·
     <a href="#从源码运行">从源码运行</a>
     ·
@@ -20,13 +20,15 @@
   </p>
 </div>
 
-![TO-DO Panel 首页](docs/screenshots/home.png)
+![Paimon Pal 刘海工作台（上游界面基线）](docs/screenshots/home.png)
 
-![TO-DO Panel 待办](docs/screenshots/todo.png)
+![Paimon Pal 待办（上游界面基线）](docs/screenshots/todo.png)
 
 ## 它是什么
 
-TO-DO Panel 是一个常驻 macOS 屏幕顶部的本地工作台。默认折叠成物理刘海大小，点击后从顶部展开；常用信息和动作不必再散落在多个应用里。
+Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时与物理刘海重合；鼠标移到刘海会看到派蒙，点击后直接从刘海展开 Bento 工作台，而不是另外弹出普通文件夹式窗口。派蒙可拖到桌面任意安全位置，也可拖回屏幕顶部自动停靠。
+
+点击派蒙后，输入框就地出现在工作台右下方。简单工具指令（计时、添加待办、保存笔记、打开页面）走确定性本机路由；普通聊天调用内置 Qwen3 4B 模型，最多携带最近 6 条上下文，不上传云端。
 
 | 页面 | 解决什么问题 |
 | --- | --- |
@@ -38,6 +40,8 @@ TO-DO Panel 是一个常驻 macOS 屏幕顶部的本地工作台。默认折叠�
 | **密钥** | 使用 macOS 安全存储加密账号、密码和 API Key |
 | **设置** | 当菜单栏图标被刘海遮挡时，仍可在面板内配置 API、镜子、首页组件、功能显示、快捷键、数据目录与开机启动 |
 
+派蒙不是第八个孤立页面，而是贯穿折叠刘海、展开工作台和桌面三种状态的统一入口。
+
 剪贴板历史默认关闭，可从菜单栏或面板「设置」的「显示功能」中按需启用。菜单栏入口与设置页读写同一份本机配置；即使状态栏图标过多、被物理刘海遮挡，也不影响调整。Codex、Claude Code 与 GPT 的本机完成事件也可以直接显示为不抢焦点的顶部提醒。
 
 「设置 → 首页组件」可以隐藏或恢复首页的七个组件，但首页至少保留一个。隐藏后，其余组件会自动重新铺满整个 Bento 网格，不留空洞；组件数据、用户保存的排列顺序和尺寸偏好不会被删除或覆盖。只要存在隐藏组件，首页使用自动填充布局并暂时隐藏尺寸按钮；恢复全部七个组件后，原尺寸偏好与按钮会一并恢复。该偏好随当前本地工作区保存，存储键为 `notch-home-hidden-modules-v1`。
@@ -46,10 +50,10 @@ TO-DO Panel 是一个常驻 macOS 屏幕顶部的本地工作台。默认折叠�
 
 ## 下载与安装
 
-> 当前稳定版本：**1.0.5** · 支持 **macOS 13.0+ 的 Apple Silicon Mac**
+> 当前稳定版本：**0.5.0** · 支持 **macOS 13.0+ 的 Apple Silicon Mac**
 
-1. 前往 [GitHub Releases](https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest) 下载 `TO-DO-Panel-*-arm64.dmg`。
-2. 打开 DMG，将 `TO-DO Panel.app` 拖入「应用程序」。
+1. 使用本项目 `dist.noindex/` 中生成的 `Paimon-Pal-*-arm64.dmg`；上游工作台的公开发行页保留在 [TO-DO Panel Releases](https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest) 供来源核对。
+2. 打开 DMG，将 `Paimon Pal.app` 拖入「应用程序」。
 3. 首次启动若被 macOS 拦截，前往「系统设置 → 隐私与安全性」，点击「仍要打开」。
 4. 再次启动，根据需要授予辅助功能、屏幕录制、麦克风或摄像头权限。
 
@@ -57,7 +61,7 @@ TO-DO Panel 是一个常驻 macOS 屏幕顶部的本地工作台。默认折叠�
 
 ## 更新日志
 
-当前稳定版本为 **v1.0.5**。正在开发但尚未发布的改动会先记录在 `[未发布]`，正式发版时再归档到对应版本，避免 README 随版本增加而持续膨胀。
+当前课程稳定版本为 **v0.5.0**。正在开发但尚未发布的改动会先记录在 `[未发布]`。
 
 完整版本历史、修复内容与未发布改动见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -71,7 +75,7 @@ TO-DO Panel 是一个常驻 macOS 屏幕顶部的本地工作台。默认折叠�
 
 ## 本机 AI 完成提醒
 
-TO-DO Panel 只在 `127.0.0.1:43821` 监听通知接口，来源限 `codex`、`claude` 与 `gpt`：
+Paimon Pal 只在 `127.0.0.1:43821` 监听通知接口，来源限 `codex`、`claude` 与 `gpt`：
 
 ```bash
 curl -X POST http://127.0.0.1:43821/notify/codex \
@@ -82,8 +86,8 @@ curl -X POST http://127.0.0.1:43821/notify/codex \
 仓库已提供 [Codex 转发脚本](scripts/codex-notify.js) 和 [Claude Code 转发脚本](scripts/claude-notify.js)。通过 DMG 安装后，脚本路径为：
 
 ```text
-/Applications/TO-DO Panel.app/Contents/Resources/app/scripts/codex-notify.js
-/Applications/TO-DO Panel.app/Contents/Resources/app/scripts/claude-notify.js
+/Applications/Paimon Pal.app/Contents/Resources/app/scripts/codex-notify.js
+/Applications/Paimon Pal.app/Contents/Resources/app/scripts/claude-notify.js
 ```
 
 ## 从源码运行
@@ -91,14 +95,13 @@ curl -X POST http://127.0.0.1:43821/notify/codex \
 桌面端要求 Node.js 22.12.0+：
 
 ```bash
-git clone https://github.com/xiaopu-ai/TO-DO-Panel.git
-cd TO-DO-Panel
+cd /Users/hurmit/Desktop/MAC刘海儿屏插件/ElectronRebase
 npm install
 npm test
 npm start
 ```
 
-项目使用单一 Electron 架构，没有渲染层构建步骤，`npm start` 是完整运行路径。
+项目使用单一 Electron 架构，没有渲染层构建步骤，`npm start` 是完整运行路径。本分支基于 [xiaopu-ai/TO-DO-Panel](https://github.com/xiaopu-ai/TO-DO-Panel)（MIT）改造，原许可证与第三方声明均保留。
 
 | 命令 | 用途 |
 | --- | --- |
@@ -137,4 +140,4 @@ npm run dev
 
 ## License
 
-[MIT](LICENSE) © 2026 [xiaopu-ai](https://github.com/xiaopu-ai)
+[MIT](LICENSE)。工作台底座 © 2026 [xiaopu-ai](https://github.com/xiaopu-ai) 与 TO-DO Panel contributors；派蒙相关角色素材仅用于个人非商业课程作业，详见 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。

@@ -5366,3 +5366,155 @@ body {
 .settings-home-module-grid input:focus-visible + i { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .settings-home-module-grid input:disabled + i { opacity: .55; }
 #settings-home-module-status[data-state='warning'] { color: #ffb16d; }
+
+/* ============ Paimon Pal · 刘海伙伴与就地输入 ============ */
+.notch-star {
+  position: absolute;
+  left: calc(50% - 23px);
+  bottom: 0;
+  color: #ffd56a;
+  font-size: 7px;
+  opacity: 0;
+  transform: translateY(2px) scale(.8);
+  transition: opacity 140ms var(--ease), transform 180ms var(--ease-out);
+}
+
+#app.collapsed .notch:hover .notch-star {
+  opacity: .95;
+  transform: translateY(0) scale(1);
+}
+
+.paimon-top-trigger {
+  position: absolute;
+  z-index: 9;
+  top: 20px;
+  left: calc(50% + 136px);
+  width: 44px;
+  height: 44px;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  background: rgba(16,16,20,.88);
+  color: var(--text-1);
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.08);
+  backdrop-filter: blur(18px);
+  transition: transform 160ms var(--ease-out), border-color 140ms var(--ease), background 140ms var(--ease);
+}
+
+.paimon-top-trigger:hover {
+  transform: translateY(2px);
+  border-color: rgba(255,213,106,.35);
+  background: rgba(27,24,30,.96);
+}
+
+.paimon-top-trigger:active { transform: translateY(2px) scale(.96); }
+.paimon-top-trigger img { width: 34px; height: 34px; object-fit: contain; }
+.paimon-top-trigger > span { display: none; }
+.paimon-top-trigger strong { font: 650 11px var(--font); }
+.paimon-top-trigger small { margin-top: 3px; color: #e6bf64; font: 500 8px var(--font); }
+
+.paimon-assistant {
+  position: absolute;
+  z-index: 80;
+  right: 22px;
+  bottom: 18px;
+  width: min(430px, calc(100% - 44px));
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 22px;
+  background: rgba(16,16,20,.9);
+  box-shadow: 0 24px 70px rgba(0,0,0,.54), inset 0 1px rgba(255,255,255,.07);
+  backdrop-filter: blur(28px) saturate(1.15);
+  opacity: 0;
+  transform: translateY(12px) scale(.97);
+  transform-origin: 85% 100%;
+  transition: opacity 150ms var(--ease), transform 190ms var(--ease-out);
+}
+
+.paimon-assistant.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+
+.paimon-assistant-head {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 7px;
+}
+.paimon-assistant-head img { width: 30px; height: 30px; object-fit: contain; }
+.paimon-assistant-head > span { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.05; }
+.paimon-assistant-head strong { font-size: 11px; }
+.paimon-assistant-head small { margin-top: 3px; color: var(--text-3); font-size: 8px; }
+.paimon-assistant-head button {
+  height: 25px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255,255,255,.07);
+  color: var(--text-2);
+  font: 500 9px var(--font);
+  cursor: pointer;
+}
+#paimon-close { width: 25px; padding: 0; font-size: 16px; }
+.paimon-assistant-head button:hover { background: rgba(255,255,255,.12); color: var(--text-1); }
+
+.paimon-reply {
+  max-height: 164px;
+  overflow: auto;
+  margin: 4px 2px 9px;
+  padding: 10px 12px;
+  border-radius: 14px 14px 14px 5px;
+  background: linear-gradient(135deg, rgba(255,213,106,.12), rgba(114,119,255,.1));
+  color: rgba(255,255,255,.9);
+  font: 500 12px/1.55 var(--font);
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.paimon-reply[data-tone='loading'] { color: var(--text-3); }
+.paimon-reply[data-tone='error'] { color: #ffb3ad; }
+
+.paimon-composer {
+  height: 42px;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 34px;
+  gap: 7px;
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  background: rgba(255,255,255,.055);
+}
+.paimon-composer input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--text-1);
+  font: 500 12px var(--font);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.paimon-composer input::placeholder { color: var(--text-4); }
+.paimon-composer button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #ffd66f, #f1a654);
+  color: #21170d;
+  font: 700 17px var(--font);
+  cursor: pointer;
+}
+.paimon-composer button:disabled { opacity: .42; cursor: wait; }
+
+@media (prefers-reduced-motion: reduce) {
+  .paimon-top-trigger,
+  .paimon-assistant,
+  .notch-star { transition-duration: 1ms !important; }
+}
