@@ -82,6 +82,23 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 250));
     const assistantVisible = await evaluate(mainClient, `!document.getElementById('paimon-assistant').hidden`);
     if (!assistantVisible) throw new Error('assistant composer did not open');
+    const assistantGeometry = await evaluate(mainClient, `(() => {
+      const panel = document.getElementById('paimon-assistant').getBoundingClientRect();
+      const trigger = document.getElementById('paimon-top-trigger').getBoundingClientRect();
+      return {
+        panel: { x: panel.x, y: panel.y, width: panel.width, height: panel.height, right: panel.right, bottom: panel.bottom },
+        trigger: { x: trigger.x, y: trigger.y, width: trigger.width, height: trigger.height, bottom: trigger.bottom },
+        viewport: { width: innerWidth, height: innerHeight }
+      };
+    })()`);
+    const panelCenter = assistantGeometry.panel.x + assistantGeometry.panel.width / 2;
+    const triggerCenter = assistantGeometry.trigger.x + assistantGeometry.trigger.width / 2;
+    if (Math.abs(panelCenter - triggerCenter) > 2) {
+      throw new Error(`assistant is not anchored to Paimon: ${JSON.stringify(assistantGeometry)}`);
+    }
+    if (assistantGeometry.panel.y < assistantGeometry.trigger.bottom || assistantGeometry.panel.right > assistantGeometry.viewport.width - 12) {
+      throw new Error(`assistant escaped the notch workspace: ${JSON.stringify(assistantGeometry)}`);
+    }
     const assistantPath = await capture(mainClient, 'paimon-pal-assistant.png');
 
     await evaluate(mainClient, `(() => {
@@ -139,6 +156,7 @@ async function main() {
       ok: true,
       expandedPath,
       assistantPath,
+      assistantGeometry,
       timerPath,
       modelPath,
       petPath,
