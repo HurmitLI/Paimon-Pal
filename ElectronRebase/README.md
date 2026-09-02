@@ -4,7 +4,7 @@
   <p><strong>住在 MacBook 刘海旁的本地派蒙伙伴与生产力工作台。</strong></p>
   <p>桌面宠物、本地 4B 对话、计时与工具，和待办、笔记、链接、录音一起收进刘海。</p>
   <p>
-    <a href="#下载与安装"><strong>安装本地课程版</strong></a>
+    <a href="#下载与安装"><strong>安装本地体验版</strong></a>
     ·
     <a href="#从源码运行">从源码运行</a>
     ·
@@ -28,7 +28,7 @@
 
 Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时与物理刘海重合；鼠标移到刘海会看到派蒙，点击后直接从刘海展开 Bento 工作台，而不是另外弹出普通文件夹式窗口。派蒙可拖到桌面任意安全位置，也可拖回屏幕顶部自动停靠。
 
-点击派蒙后，输入框就地出现在工作台右下方。简单工具指令（计时、添加待办、保存笔记、打开页面）走确定性本机路由；普通聊天调用内置 Qwen3 4B 模型，最多携带最近 6 条上下文，不上传云端。
+点击派蒙后，输入框就地出现在工作台右下方。简单工具指令（计时、添加待办、保存笔记、打开页面）走确定性本机路由；安装独立离线资源后，普通聊天调用 Qwen3 4B 模型，最多携带最近 6 条上下文，不上传云端。
 
 | 页面 | 解决什么问题 |
 | --- | --- |
@@ -57,11 +57,13 @@ Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时�
 3. 首次启动若被 macOS 拦截，前往「系统设置 → 隐私与安全性」，点击「仍要打开」。
 4. 再次启动，根据需要授予辅助功能、屏幕录制、麦克风或摄像头权限。
 
+主 DMG 是轻量包，约 147 MB，不重复携带 4B 权重和 P1 语音运行时。这两类可选离线资源放在 `~/Library/Application Support/Paimon Pal Electron/runtime-assets/`；只更新主应用时不会再下载或覆盖它们。
+
 项目明确采用 GitHub Releases + ad-hoc 签名分发，不进行 Apple 公证，也不上架 Mac App Store。因此首次安装需要手动确认“仍要打开”；这是当前正式分发方式，不是待修复的发布缺陷。每次重新打包后，macOS 可能要求重新授权；由 `safeStorage` 加密的密钥也可能需要重新填写。
 
 ## 更新日志
 
-当前课程稳定版本为 **v0.5.0**。正在开发但尚未发布的改动会先记录在 `[未发布]`。
+当前本地稳定版本为 **v0.5.0**。正在开发但尚未发布的改动会先记录在 `[未发布]`。
 
 完整版本历史、修复内容与未发布改动见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -140,4 +142,4 @@ npm run dev
 
 ## License
 
-[MIT](LICENSE)。工作台底座 © 2026 [xiaopu-ai](https://github.com/xiaopu-ai) 与 TO-DO Panel contributors；派蒙相关角色素材仅用于个人非商业课程作业，详见 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。
+[MIT](LICENSE)。工作台底座 © 2026 [xiaopu-ai](https://github.com/xiaopu-ai) 与 TO-DO Panel contributors；派蒙相关角色素材仅用于本地非商业原型验证，详见 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。

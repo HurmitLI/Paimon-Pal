@@ -100,6 +100,15 @@ test('macOS packaging declares the Electron 44 minimum and least-privilege runti
   assert.match(entitlements, /com\.apple\.security\.cs\.disable-library-validation/);
 });
 
+test('the primary DMG excludes heavyweight optional model and voice assets', () => {
+  const resources = packageConfig.build.extraResources || [];
+  const serialized = JSON.stringify(resources);
+  assert.match(serialized, /notchflow-model-probe/);
+  assert.match(serialized, /mlx\.metallib/);
+  assert.doesNotMatch(serialized, /Qwen3-4B-Instruct-2507-4bit/);
+  assert.doesNotMatch(serialized, /PaimonTTS/);
+});
+
 test('release version and public download entry points stay aligned', () => {
   const readme = fs.readFileSync(readmePath, 'utf8');
   const websiteDownload = fs.readFileSync(websiteDownloadPath, 'utf8');

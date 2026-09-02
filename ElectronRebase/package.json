@@ -51,14 +51,6 @@
       {
         "from": "../Tools/LocalModelProbe/.build/arm64-apple-macosx/release/mlx.metallib",
         "to": "PaimonModel/mlx.metallib"
-      },
-      {
-        "from": "../PrivateModelAssets/Qwen3-4B-Instruct-2507-4bit",
-        "to": "PaimonModel/Qwen3-4B-Instruct-2507-4bit"
-      },
-      {
-        "from": "../build/PaimonPalLocalDMGData/Build/Products/Release/NotchFlow.app/Contents/Resources/PaimonTTS",
-        "to": "PaimonTTS"
       }
     ],
     "mac": {

@@ -220,6 +220,7 @@ const WORKSPACE_SETTINGS_FILE = 'workspace-settings.json';
 const WORKSPACE_DATA_FILE = 'workspace.json';
 const MIRROR_IMAGE_FILE = 'mirror-cover.jpg';
 const PET_STATE_FILE = 'paimon-pet-state.json';
+const PAIMON_RUNTIME_ASSETS_DIR = 'runtime-assets';
 const PET_WIDTH = 228;
 const PET_HEIGHT = 244;
 const PET_DOCK_THRESHOLD_X = 150;
@@ -1606,10 +1607,15 @@ function createTray() {
 
 function localModelRuntime() {
   if (app.isPackaged) {
+    const bundledRoot = path.join(process.resourcesPath, 'PaimonModel');
+    const externalRoot = path.join(app.getPath('userData'), PAIMON_RUNTIME_ASSETS_DIR, 'PaimonModel');
+    const externalModelDirectory = path.join(externalRoot, 'Qwen3-4B-Instruct-2507-4bit');
+    const bundledModelDirectory = path.join(bundledRoot, 'Qwen3-4B-Instruct-2507-4bit');
     return {
-      executable: path.join(process.resourcesPath, 'PaimonModel', 'notchflow-model-probe'),
-      modelDirectory: path.join(process.resourcesPath, 'PaimonModel', 'Qwen3-4B-Instruct-2507-4bit'),
-      workingDirectory: path.join(process.resourcesPath, 'PaimonModel'),
+      executable: path.join(bundledRoot, 'notchflow-model-probe'),
+      modelDirectory: fs.existsSync(externalModelDirectory) ? externalModelDirectory : bundledModelDirectory,
+      workingDirectory: bundledRoot,
+      assetRoot: externalRoot,
     };
   }
   const projectRoot = path.resolve(__dirname, '..');
@@ -1633,6 +1639,8 @@ function localModelAvailability() {
   return {
     available: fs.existsSync(runtime.executable) && fs.existsSync(runtime.modelDirectory),
     model: 'Qwen3-4B-Instruct-2507-4bit',
+    assetRoot: runtime.assetRoot || runtime.modelDirectory,
+    ttsAvailable: paimonTtsAvailability(),
   };
 }
 
@@ -1695,9 +1703,13 @@ function askLocalPaimon(payload) {
 }
 
 function paimonTtsRuntime() {
-  const root = app.isPackaged
-    ? path.join(process.resourcesPath, 'PaimonTTS')
-    : path.resolve(
+  let root;
+  if (app.isPackaged) {
+    const externalRoot = path.join(app.getPath('userData'), PAIMON_RUNTIME_ASSETS_DIR, 'PaimonTTS');
+    const bundledRoot = path.join(process.resourcesPath, 'PaimonTTS');
+    root = fs.existsSync(externalRoot) ? externalRoot : bundledRoot;
+  } else {
+    root = path.resolve(
       __dirname,
       '..',
       'build',
@@ -1710,6 +1722,7 @@ function paimonTtsRuntime() {
       'Resources',
       'PaimonTTS'
     );
+  }
   return {
     root,
     python: path.join(root, 'Runtime', 'Python', 'bin', 'python3.12'),
@@ -1719,6 +1732,12 @@ function paimonTtsRuntime() {
     model: path.join(root, 'Model'),
     reference: path.join(root, 'VoiceReference.wav'),
   };
+}
+
+function paimonTtsAvailability() {
+  const runtime = paimonTtsRuntime();
+  return [runtime.python, runtime.script, runtime.model, runtime.reference]
+    .every((item) => fs.existsSync(item));
 }
 
 function speakLocalPaimon(rawText) {

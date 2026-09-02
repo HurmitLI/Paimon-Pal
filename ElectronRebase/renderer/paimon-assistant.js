@@ -279,7 +279,7 @@
         const result = await window.notchAPI.askPaimon({ prompt: value, history: context });
         if (result && result.ok) answer = result.reply;
         if (!answer && result && result.error === 'model_unavailable') {
-          answer = '本地 4B 模型还没有放进当前安装包，但计时、待办、笔记和页面打开仍然可以直接用。';
+          answer = '本地 4B 模型资源还没有安装，但计时、待办、笔记和页面打开仍然可以直接用。';
         }
       }
       if (!answer) answer = '这次本地模型没有成功回答。你可以再说一次，或者先让我帮你计时、记待办和笔记。';
@@ -334,7 +334,7 @@
   window.notchAPI?.onOpenPaimonAssistant?.(openAssistant);
   window.notchAPI?.onClosePaimonAssistant?.(closeAssistant);
   window.notchAPI?.getPaimonStatus?.().then((result) => {
-    if (modelBadge) modelBadge.textContent = result && result.available ? '本地 4B' : '本地工具';
+    if (modelBadge) modelBadge.textContent = result && result.available ? '本地 4B' : '模型未安装';
   }).catch(() => {});
   updateVoiceButton();
 
