@@ -42,6 +42,8 @@ const {
   readClipboardObservation,
   taskNotificationWindowPolicy,
   updateFeaturePreference,
+  normalizeMusicPlayerPreference,
+  selectMusicPlayer,
   controlSodaMusic,
   sodaShortcutSpec,
   selectTranscriptionSettings,
@@ -224,6 +226,7 @@ const PET_HEIGHT = 244;
 const PET_DOCK_THRESHOLD_X = 150;
 const PET_DOCK_THRESHOLD_Y = 130;
 const workspacePersistenceGate = createWorkspacePersistenceGate();
+const APPLE_MUSIC_APP = '/System/Applications/Music.app';
 const SODA_MUSIC_APP = '/Applications/汽水音乐.app';
 const TRANSCRIPTION_MODEL = 'qwen3-asr-flash-realtime';
 const TRANSCRIPTION_SAMPLE_RATE = 16000;
@@ -1334,6 +1337,7 @@ function readAppSettings() {
   return {
     features: { ...DEFAULT_FEATURES, ...(stored.features || {}), home: true },
     shortcut: isValidPanelShortcut(stored.shortcut) ? stored.shortcut : 'Space',
+    musicPlayer: normalizeMusicPlayerPreference(stored.musicPlayer),
   };
 }
 
@@ -2099,6 +2103,15 @@ ipcMain.handle('settings:set-shortcut', (event, accelerator) => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings:changed', publicAppSettings());
   refreshTrayMenu();
   return { ok: true, shortcut: accelerator };
+});
+ipcMain.handle('settings:set-music-player', (event, playerId) => {
+  const normalized = normalizeMusicPlayerPreference(playerId);
+  if (normalized !== playerId) return { ok: false, error: 'invalid' };
+  const next = { ...readAppSettings(), musicPlayer: normalized };
+  if (!saveAppSettings(next)) return { ok: false, error: 'save_failed' };
+  const settings = publicAppSettings();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings:changed', settings);
+  return { ok: true, settings };
 });
 ipcMain.handle('workspace:get', () => ({ path: workspaceRoot(), portable: workspaceRoot() !== app.getPath('userData') }));
 ipcMain.handle('workspace:load-data', () => {
@@ -2937,6 +2950,12 @@ function sodaMusicRunning() {
   });
 }
 
+function appleMusicRunning() {
+  return new Promise((resolve) => {
+    execFile('/usr/bin/pgrep', ['-x', 'Music'], { timeout: 1500 }, (error) => resolve(!error));
+  });
+}
+
 function launchSodaMusic() {
   return new Promise((resolve) => {
     const cleanEnvironment = { ...process.env };
@@ -2971,6 +2990,129 @@ function run(argv) {
   return 'ok';
 }`;
 
+const APPLE_MUSIC_STATUS_JXA = `
+function status(music) {
+  const result = { running: false, playing: false, state: 'stopped', title: '', artist: '', error: '' };
+  try { result.running = Boolean(music.running()); } catch (error) {}
+  if (!result.running) return result;
+  try { result.state = String(music.playerState() || 'stopped').toLowerCase(); } catch (error) {
+    result.error = Number(error.number) === -1743 ? 'automation_permission_required' : 'status_unavailable';
+  }
+  result.playing = result.state === 'playing';
+  try { result.title = String(music.currentTrack.name() || ''); } catch (error) {}
+  try { result.artist = String(music.currentTrack.artist() || ''); } catch (error) {}
+  return result;
+}
+function run() {
+  return JSON.stringify(status(Application('Music')));
+}`;
+
+const APPLE_MUSIC_CONTROL_JXA = `
+function status(music) {
+  const result = { running: false, playing: false, state: 'stopped', title: '', artist: '', error: '' };
+  try { result.running = Boolean(music.running()); } catch (error) {}
+  if (!result.running) return result;
+  try { result.state = String(music.playerState() || 'stopped').toLowerCase(); } catch (error) {
+    result.error = Number(error.number) === -1743 ? 'automation_permission_required' : 'status_unavailable';
+  }
+  result.playing = result.state === 'playing';
+  try { result.title = String(music.currentTrack.name() || ''); } catch (error) {}
+  try { result.artist = String(music.currentTrack.artist() || ''); } catch (error) {}
+  return result;
+}
+function run(argv) {
+  const action = String(argv[0] || '');
+  const music = Application('Music');
+  let running = false;
+  try { running = Boolean(music.running()); } catch (error) {}
+  if (!running && action !== 'play') return JSON.stringify({ ok: false, error: 'no_active_session' });
+  try {
+    if (!running) {
+      music.activate();
+      delay(0.7);
+    }
+    if (action === 'play') music.play();
+    else if (action === 'pause') music.pause();
+    else if (action === 'next') music.nextTrack();
+    else if (action === 'previous') music.previousTrack();
+    else return JSON.stringify({ ok: false, error: 'invalid_action' });
+    delay(0.12);
+    const current = status(music);
+    current.ok = true;
+    return JSON.stringify(current);
+  } catch (error) {
+    return JSON.stringify({ ok: false, error: Number(error.number) === -1743 ? 'automation_permission_required' : 'apple_music_control_failed' });
+  }
+}`;
+
+async function readAppleMusicStatus() {
+  const installed = fs.existsSync(APPLE_MUSIC_APP);
+  const running = installed ? await appleMusicRunning() : false;
+  if (!running) {
+    return { id: 'apple-music', name: 'Apple Music', installed, running: false, sessionActive: false, playing: false, title: '', artist: '' };
+  }
+  try {
+    const parsed = JSON.parse(await runJxa(APPLE_MUSIC_STATUS_JXA) || '{}');
+    return {
+      id: 'apple-music',
+      name: 'Apple Music',
+      installed,
+      running: parsed.running === true,
+      sessionActive: parsed.running === true,
+      playing: parsed.playing === true,
+      title: String(parsed.title || ''),
+      artist: String(parsed.artist || ''),
+      error: String(parsed.error || ''),
+    };
+  } catch (error) {
+    return { id: 'apple-music', name: 'Apple Music', installed, running, sessionActive: running, playing: false, title: '', artist: '', error: 'automation_permission_required' };
+  }
+}
+
+async function readSodaMusicStatus() {
+  const installed = fs.existsSync(SODA_MUSIC_APP);
+  const running = installed ? await sodaMusicRunning() : false;
+  if (!running) sodaMusicPlaying = false;
+  return {
+    id: 'soda',
+    name: '汽水音乐',
+    installed,
+    running,
+    sessionActive: running,
+    playing: running && sodaMusicPlaying,
+    title: '',
+    artist: '',
+  };
+}
+
+async function musicPlayersSnapshot() {
+  return Promise.all([readAppleMusicStatus(), readSodaMusicStatus()]);
+}
+
+async function selectedMusicStatus() {
+  const preference = readAppSettings().musicPlayer;
+  const players = await musicPlayersSnapshot();
+  const selected = selectMusicPlayer(players, preference);
+  return {
+    ...(selected || { installed: false, running: false, sessionActive: false, playing: false, title: '', artist: '', icon: null }),
+    playerId: selected && selected.id || '',
+    playerName: selected && selected.name || '音乐播放器',
+    preference,
+    autoSelected: preference === 'auto',
+    availablePlayers: players.map(({ id, name, installed, running, playing }) => ({ id, name, installed, running, playing })),
+  };
+}
+
+async function controlAppleMusic(action) {
+  if (!fs.existsSync(APPLE_MUSIC_APP)) return { ok: false, error: 'not_installed' };
+  if (!['play', 'pause', 'next', 'previous'].includes(action)) return { ok: false, error: 'invalid_action' };
+  try {
+    return JSON.parse(await runJxa(APPLE_MUSIC_CONTROL_JXA, [action]) || '{}');
+  } catch (error) {
+    return { ok: false, error: 'automation_permission_required' };
+  }
+}
+
 async function sendSodaShortcut(action) {
   if (process.platform !== 'darwin') return { ok: false, error: 'unsupported' };
   if (!systemPreferences.isTrustedAccessibilityClient(true)) {
@@ -2992,28 +3134,25 @@ async function sendSodaShortcut(action) {
 }
 
 ipcMain.handle('music:status', async () => {
-  const installed = fs.existsSync(SODA_MUSIC_APP);
-  const running = installed ? await sodaMusicRunning() : false;
-  if (!running) sodaMusicPlaying = false;
-  return {
-    installed,
-    running,
-    sessionActive: running,
-    playing: running && sodaMusicPlaying,
-    title: '',
-    artist: '',
-    icon: installed ? await readSystemAppIconNow(SODA_MUSIC_APP) : null,
-  };
+  return selectedMusicStatus();
 });
 
 ipcMain.handle('music:control', async (event, action) => {
-  if (!fs.existsSync(SODA_MUSIC_APP)) return { ok: false, error: 'not_installed' };
-  const result = await controlSodaMusic(action, {
-    isRunning: sodaMusicRunning,
-    launch: launchSodaMusic,
-    sendShortcut: sendSodaShortcut,
-  }, sodaMusicPlaying);
-  if (result && result.ok) sodaMusicPlaying = result.playing;
+  const status = await selectedMusicStatus();
+  if (!status.playerId) return { ok: false, error: 'not_installed' };
+  let result;
+  if (status.playerId === 'apple-music') {
+    result = await controlAppleMusic(action);
+  } else {
+    if (!fs.existsSync(SODA_MUSIC_APP)) return { ok: false, error: 'not_installed', playerId: status.playerId };
+    result = await controlSodaMusic(action, {
+      isRunning: sodaMusicRunning,
+      launch: launchSodaMusic,
+      sendShortcut: sendSodaShortcut,
+    }, sodaMusicPlaying);
+    if (result && result.ok) sodaMusicPlaying = result.playing;
+  }
+  result = { ...result, playerId: status.playerId, playerName: status.playerName };
   if (result && result.ok && mainWindow && !mainWindow.isDestroyed() && currentMode === 'expanded') {
     if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();

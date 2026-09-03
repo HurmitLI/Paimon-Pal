@@ -731,6 +731,8 @@
   const settingsMirrorChoose = document.getElementById('settings-mirror-choose');
   const settingsShortcutValue = document.getElementById('settings-shortcut-value');
   const settingsShortcutChange = document.getElementById('settings-shortcut-change');
+  const settingsMusicPlayer = document.getElementById('settings-music-player');
+  const settingsMusicPlayerStatus = document.getElementById('settings-music-player-status');
   const settingsWorkspaceKind = document.getElementById('settings-workspace-kind');
   const settingsWorkspacePath = document.getElementById('settings-workspace-path');
   const settingsWorkspaceOpen = document.getElementById('settings-workspace-open');
@@ -771,6 +773,7 @@
   };
   let settingsAppSettings = null;
   let settingsWorkspace = null;
+  let musicPlayerStatus = null;
   let transcriptionStatus = 'idle';
   let transcriptionStartPromise = null;
   let transcriptionAudioContext = null;
@@ -947,10 +950,32 @@
       settingsWorkspacePath.title = summary.workspacePath || '';
     }
     if (settingsAutoLaunch) settingsAutoLaunch.checked = summary.autoLaunch;
+    renderMusicPlayerSettings();
     settingsFeatureList?.querySelectorAll('input[data-settings-feature]').forEach((input) => {
       input.checked = settingsAppSettings?.features?.[input.dataset.settingsFeature] !== false;
     });
     renderHomeModuleSettings();
+  }
+
+  function renderMusicPlayerSettings() {
+    if (!settingsMusicPlayer) return;
+    const preference = settingsAppSettings?.musicPlayer || 'auto';
+    const players = Array.isArray(musicPlayerStatus?.availablePlayers)
+      ? musicPlayerStatus.availablePlayers
+      : [];
+    const options = [{ id: 'auto', name: '自动识别', installed: true }, ...players.filter((player) => player.installed || player.id === preference)];
+    settingsMusicPlayer.replaceChildren(...options.map((player) => {
+      const option = document.createElement('option');
+      option.value = player.id;
+      option.textContent = player.id === 'auto' ? '自动识别' : player.installed ? player.name : `${player.name}（未安装）`;
+      option.disabled = player.id !== 'auto' && !player.installed;
+      return option;
+    }));
+    settingsMusicPlayer.value = preference;
+    if (settingsMusicPlayerStatus) {
+      const current = musicPlayerStatus?.playerName || '等待检测';
+      settingsMusicPlayerStatus.textContent = preference === 'auto' ? `自动 · ${current}` : current;
+    }
   }
 
   function renderHomeModuleSettings() {
@@ -978,14 +1003,16 @@
 
   async function refreshSettingsPanel() {
     if (!window.notchAPI) return;
-    const [appSettings, workspace, config, mirrorImage] = await Promise.all([
+    const [appSettings, workspace, config, mirrorImage, currentMusicStatus] = await Promise.all([
       window.notchAPI.getAppSettings?.().catch(() => null),
       window.notchAPI.getWorkspace?.().catch(() => null),
       window.notchAPI.getTranscriptionConfig?.().catch(() => null),
       window.notchAPI.getMirrorImage?.().catch(() => null),
+      window.notchAPI.getMusicStatus?.().catch(() => null),
     ]);
     if (appSettings) settingsAppSettings = appSettings;
     if (workspace) settingsWorkspace = workspace;
+    if (currentMusicStatus) musicPlayerStatus = currentMusicStatus;
     if (config) {
       transcriptionConfig = config;
       updateTranscriptionConfigUi();
@@ -1701,6 +1728,21 @@
   settingsShortcutChange?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('notch:record-shortcut'));
   });
+  settingsMusicPlayer?.addEventListener('change', async () => {
+    if (!window.notchAPI?.setMusicPlayer) return;
+    settingsMusicPlayer.disabled = true;
+    const result = await window.notchAPI.setMusicPlayer(settingsMusicPlayer.value).catch(() => ({ ok: false }));
+    settingsMusicPlayer.disabled = false;
+    if (!result?.ok) {
+      renderMusicPlayerSettings();
+      setSettingsNote('音乐播放器设置保存失败，请重试。', true);
+      return;
+    }
+    settingsAppSettings = result.settings || settingsAppSettings;
+    await refreshMusicStatus();
+    renderMusicPlayerSettings();
+    setSettingsNote(settingsMusicPlayer.value === 'auto' ? '已开启音乐播放器自动识别。' : `已固定使用 ${musicPlayerStatus?.playerName || '所选播放器'}。`);
+  });
   settingsWorkspaceOpen?.addEventListener('click', () => {
     window.notchAPI?.openWorkspace?.().catch(() => setSettingsNote('无法打开数据文件夹。', true));
   });
@@ -2232,7 +2274,7 @@
   });
   document.addEventListener('notch:recording-state-changed', renderHomeModuleSettings);
 
-  // ============ 本地汽水音乐 ============
+  // ============ 本地音乐播放器 ============
   const homeMusic = document.getElementById('home-music');
   const musicArtwork = document.getElementById('music-artwork');
   const musicTitle = document.getElementById('music-title');
@@ -2254,7 +2296,11 @@
     if (!homeMusic || !window.notchAPI || typeof window.notchAPI.getMusicStatus !== 'function') return;
     let status;
     try { status = await window.notchAPI.getMusicStatus(); } catch (error) { status = null; }
+    if (status) musicPlayerStatus = status;
     homeMusic.classList.toggle('music-running', Boolean(status && status.running));
+    if (status?.playerId) homeMusic.dataset.playerId = status.playerId;
+    else delete homeMusic.dataset.playerId;
+    homeMusic.setAttribute('aria-label', `${status?.playerName || '音乐'}播放器`);
     if (status && typeof status.playing === 'boolean') {
       musicPlaying = status.playing;
       renderMusicPlaybackState();
@@ -2266,8 +2312,15 @@
       image.alt = '';
       musicArtwork.appendChild(image);
     }
-    if (musicTitle) musicTitle.textContent = status && status.installed ? '汽水音乐' : '未安装汽水音乐';
-    if (musicStatus) musicStatus.textContent = status && status.running ? (musicPlaying ? '正在播放' : '已连接') : status && status.installed ? '轻触即播' : '需要本地客户端';
+    if (musicTitle) musicTitle.textContent = status?.title || status?.playerName || '未检测到音乐播放器';
+    if (musicStatus) {
+      musicStatus.textContent = status?.error === 'automation_permission_required'
+        ? '需要允许控制“音乐”'
+        : status?.artist
+        || (status?.running ? (musicPlaying ? `正在播放 · ${status.playerName}` : `已暂停 · ${status.playerName}`)
+          : status?.installed ? `${status.playerName} · 轻触即播` : '请在设置中选择播放器');
+    }
+    renderMusicPlayerSettings();
   }
 
   homeMusic?.addEventListener('click', async (event) => {
@@ -2283,15 +2336,18 @@
     if (!result || !result.ok) {
       const needsSession = result && ['no_active_session', 'soda_session_inactive'].includes(result.error);
       const needsPermission = result && result.error === 'accessibility_permission_required';
+      const needsAutomation = result && result.error === 'automation_permission_required';
       if (musicStatus) musicStatus.textContent = result && result.error === 'not_installed'
         ? '需要本地客户端'
         : needsPermission ? '需要辅助功能权限'
+          : needsAutomation ? '需要允许控制“音乐”'
           : needsSession ? '请先点播放' : '控制暂不可用';
       if (typeof showStatusToast === 'function') {
         showStatusToast(result && result.error === 'not_installed'
-          ? '未安装汽水音乐'
+          ? '所选音乐播放器未安装'
           : needsPermission ? '请在系统设置中允许 Paimon Pal 使用辅助功能'
-            : needsSession ? '请先点击播放，再使用切歌控制' : '汽水音乐控制暂不可用');
+            : needsAutomation ? '请允许 Paimon Pal 控制“音乐”'
+              : needsSession ? '请先点击播放，再使用切歌控制' : '音乐播放器控制暂不可用');
       }
     } else {
       if (typeof result.playing === 'boolean') musicPlaying = result.playing;
@@ -2304,6 +2360,9 @@
   });
 
   renderMusicPlaybackState();
+  setInterval(() => {
+    if (workspaceExpanded && workspaceTab === 'home') refreshMusicStatus();
+  }, 3000);
 
   // ============ 本机加密密钥库 ============
   const credentialService = document.getElementById('credential-service');

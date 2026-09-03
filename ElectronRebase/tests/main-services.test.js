@@ -21,6 +21,8 @@ const {
   taskNotificationWindowPolicy,
   prepareClipboardImagePayload,
   updateFeaturePreference,
+  normalizeMusicPlayerPreference,
+  selectMusicPlayer,
   controlSodaMusic,
   sodaShortcutSpec,
   selectTranscriptionSettings,
@@ -418,6 +420,29 @@ test('feature preferences only update configurable tabs and keep permanent tabs 
   assert.equal(updateFeaturePreference({ todo: true }, 'settings', false), null);
   assert.equal(updateFeaturePreference({ todo: true }, 'unknown', false), null);
   assert.equal(updateFeaturePreference({ todo: true }, 'todo', 'false'), null);
+});
+
+test('music player preference supports automatic detection and explicit selection', () => {
+  const players = [
+    { id: 'apple-music', installed: true, running: true, playing: false },
+    { id: 'soda', installed: true, running: true, playing: true },
+  ];
+  assert.equal(normalizeMusicPlayerPreference('apple-music'), 'apple-music');
+  assert.equal(normalizeMusicPlayerPreference('soda'), 'soda');
+  assert.equal(normalizeMusicPlayerPreference('unknown'), 'auto');
+  assert.equal(selectMusicPlayer(players, 'auto').id, 'soda');
+  assert.equal(selectMusicPlayer(players, 'apple-music').id, 'apple-music');
+  assert.equal(selectMusicPlayer(players, 'soda').id, 'soda');
+});
+
+test('automatic music selection prefers a running player then the first installed player', () => {
+  const players = [
+    { id: 'apple-music', installed: true, running: false, playing: false },
+    { id: 'soda', installed: true, running: true, playing: false },
+  ];
+  assert.equal(selectMusicPlayer(players, 'auto').id, 'soda');
+  assert.equal(selectMusicPlayer(players.map((player) => ({ ...player, running: false })), 'auto').id, 'apple-music');
+  assert.equal(selectMusicPlayer(players, 'missing').id, 'soda');
 });
 
 test('first Soda Music play launches the app and starts its restored song', async () => {

@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('notchAPI', {
   setFeature: (featureId, enabled) => ipcRenderer.invoke('settings:set-feature', { featureId, enabled }),
   setAutoLaunch: (enabled) => ipcRenderer.invoke('settings:set-auto-launch', enabled === true),
   setPanelShortcut: (accelerator) => ipcRenderer.invoke('settings:set-shortcut', accelerator),
+  setMusicPlayer: (playerId) => ipcRenderer.invoke('settings:set-music-player', playerId),
   onAppSettingsChanged: (cb) => subscribe('settings:changed', (event, settings) => cb(settings)),
   onRecordShortcut: (cb) => subscribe('app:record-shortcut', () => cb()),
   getWorkspace: () => ipcRenderer.invoke('workspace:get'),

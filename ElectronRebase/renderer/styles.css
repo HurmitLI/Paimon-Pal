@@ -3601,6 +3601,20 @@ body {
 .settings-device-row em { color: #8eb2ff; font-style: normal; }
 .settings-device-row button { flex: 0 0 auto; min-height: 28px; padding: 0 10px; border: 0; border-radius: 9px; background: rgba(255,255,255,.06); color: var(--text-3); font: 9px var(--font); cursor: pointer; transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease); }
 .settings-device-row button:hover { background: rgba(255,255,255,.11); color: var(--text-1); }
+.settings-device-row select {
+  flex: 0 0 auto;
+  max-width: 184px;
+  min-height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 9px;
+  outline: none;
+  background: rgba(255,255,255,.06);
+  color: var(--text-2);
+  font: 9px var(--font);
+}
+.settings-device-row select:focus-visible { border-color: var(--focus-ring); box-shadow: 0 0 0 2px rgba(126,169,255,.16); }
+.settings-device-row select:disabled { opacity: .5; }
 .settings-workspace-row > div { flex: 1 1 auto; }
 .settings-workspace-path { max-width: 290px; }
 .settings-device-actions { flex: 0 0 auto; display: flex; gap: 6px; }
@@ -4353,7 +4367,7 @@ body {
   height: 24px;
 }
 
-/* 汽水音乐：放弃封面，动态背景上只保留左下标题与右下毛玻璃控制组。 */
+/* 音乐播放器：放弃封面，动态背景上只保留左下标题与右下毛玻璃控制组。 */
 .home-music,
 .home-music[data-widget-size='mini'],
 .home-music[data-widget-size='small'],
@@ -4747,7 +4761,7 @@ body {
 .home-pomodoro[data-widget-size='large'] > .pomodoro-toggle,
 .home-pomodoro[data-widget-size='large'] > .pomodoro-reset { width: 68px; height: 68px; }
 
-/* 汽水音乐：四个比例各自匹配标题层级，并明确区分三枚控制图标。 */
+/* 音乐播放器：四个比例各自匹配标题层级，并明确区分三枚控制图标。 */
 .home-music[data-widget-size] > .music-copy { display: block !important; }
 .home-music[data-widget-size] .music-controls button { display: grid !important; }
 .home-music .music-controls svg { width: 15px; height: 15px; }

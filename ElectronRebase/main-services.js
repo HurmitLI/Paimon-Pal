@@ -436,11 +436,26 @@ function hoverSpacePollingPolicy({ shortcut, visible, mode } = {}) {
 }
 
 const CONFIGURABLE_FEATURES = new Set(['todo', 'notes', 'links', 'recordings', 'credentials', 'clip']);
+const MUSIC_PLAYER_PREFERENCES = new Set(['auto', 'apple-music', 'soda']);
 
 function updateFeaturePreference(features, featureId, enabled) {
   if (!CONFIGURABLE_FEATURES.has(featureId) || typeof enabled !== 'boolean') return null;
   const source = features && typeof features === 'object' && !Array.isArray(features) ? features : {};
   return { ...source, [featureId]: enabled, home: true };
+}
+
+function normalizeMusicPlayerPreference(value) {
+  return MUSIC_PLAYER_PREFERENCES.has(value) ? value : 'auto';
+}
+
+function selectMusicPlayer(players, preference = 'auto') {
+  const candidates = Array.isArray(players) ? players.filter(Boolean) : [];
+  const normalized = normalizeMusicPlayerPreference(preference);
+  if (normalized !== 'auto') return candidates.find((player) => player.id === normalized) || null;
+  return candidates.find((player) => player.installed && player.running && player.playing)
+    || candidates.find((player) => player.installed && player.running)
+    || candidates.find((player) => player.installed)
+    || null;
 }
 
 // 汽水音乐没有「控制 / 播放」菜单，辅助功能树也读不出窗口与菜单项名，
@@ -521,6 +536,8 @@ module.exports = {
   createWorkspacePersistenceGate,
   hoverSpacePollingPolicy,
   updateFeaturePreference,
+  normalizeMusicPlayerPreference,
+  selectMusicPlayer,
   sodaShortcutSpec,
   controlSodaMusic,
 };

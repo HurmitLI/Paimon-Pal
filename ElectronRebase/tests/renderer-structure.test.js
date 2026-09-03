@@ -71,6 +71,16 @@ test('settings exposes exactly one switch for every homepage widget', () => {
   assert.match(workspaceJs, /at_least_one_required/);
 });
 
+test('music widget supports automatic detection and a manual player preference', () => {
+  assert.match(html, /id="settings-music-player"/);
+  assert.match(html, /<option value="auto">自动识别<\/option>/);
+  assert.match(workspaceJs, /setMusicPlayer/);
+  assert.match(mainJs, /APPLE_MUSIC_STATUS_JXA/);
+  assert.match(mainJs, /selectMusicPlayer\(players, preference\)/);
+  assert.match(mainJs, /settings:set-music-player/);
+  assert.doesNotMatch(html, /aria-label="汽水音乐播放器"/);
+});
+
 test('hidden visual widgets stop presentation-only background work', () => {
   assert.match(effectsJs, /setEnabled/);
   assert.match(effectsJs, /notch:home-modules-changed/);

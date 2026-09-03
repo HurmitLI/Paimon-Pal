@@ -77,7 +77,7 @@
         "NSCameraUsageDescription": "Paimon Pal 需要使用摄像头来显示「镜子」预览。",
         "NSMicrophoneUsageDescription": "Paimon Pal 只会在你主动点击录音或语音对话时使用麦克风。",
         "NSSpeechRecognitionUsageDescription": "Paimon Pal 只会在你主动开启语音对话时进行本机语音识别。",
-        "NSAppleEventsUsageDescription": "Paimon Pal 需要控制「系统事件」来枚举并聚焦当前窗口、发送音乐快捷键。"
+        "NSAppleEventsUsageDescription": "Paimon Pal 需要在你使用窗口切换或音乐控制时访问「系统事件」与所选音乐播放器。"
       }
     },
     "dmg": {
