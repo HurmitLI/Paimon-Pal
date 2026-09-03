@@ -7,7 +7,7 @@ const { spawnSync } = require('node:child_process');
 
 const projectRoot = path.join(__dirname, '..');
 const releasePolicyScript = path.join(projectRoot, 'scripts', 'release-policy.js');
-const releaseWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'release-dmg.yml');
+const releaseWorkflowPath = path.join(projectRoot, '..', '.github', 'workflows', 'release-dmg.yml');
 const entitlementsPath = path.join(projectRoot, 'build', 'entitlements.mac.plist');
 const readmePath = path.join(projectRoot, 'README.md');
 const websiteDownloadPath = path.join(projectRoot, 'website', 'app', 'landingDownload.mjs');

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "website/**"
+      - "ElectronRebase/website/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22.13.0
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: ElectronRebase/website/package-lock.json
 
       - name: Configure GitHub Pages
         id: pages
@@ -37,22 +37,22 @@ jobs:
 
       - name: Install website dependencies
         run: npm ci
-        working-directory: website
+        working-directory: ElectronRebase/website
 
       - name: Verify website
         run: npm test && npm run lint
-        working-directory: website
+        working-directory: ElectronRebase/website
 
       - name: Build static website
         run: npm run build:pages
-        working-directory: website
+        working-directory: ElectronRebase/website
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: website/dist/client
+          path: ElectronRebase/website/dist/client
 
   deploy:
     environment:

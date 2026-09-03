@@ -18,6 +18,9 @@ jobs:
     name: Build unsigned Apple Silicon DMG
     runs-on: macos-14
     timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ElectronRebase
 
     steps:
       - name: Checkout source
@@ -28,6 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: ElectronRebase/package-lock.json
 
       - name: Resolve release policy
         id: release
@@ -54,8 +58,8 @@ jobs:
           codesign --verify --deep --strict "${app_path}"
           hdiutil verify "${dmg_path}"
           shasum -a 256 "${dmg_path}" > "${dmg_path}.sha256"
-          print "dmg_path=${dmg_path}" >> "${GITHUB_OUTPUT}"
-          print "checksum_path=${dmg_path}.sha256" >> "${GITHUB_OUTPUT}"
+          print "dmg_path=ElectronRebase/${dmg_path}" >> "${GITHUB_OUTPUT}"
+          print "checksum_path=ElectronRebase/${dmg_path}.sha256" >> "${GITHUB_OUTPUT}"
 
       - name: Publish GitHub Release
         if: steps.release.outputs.publish == 'true'
@@ -63,6 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DMG_PATH: ${{ steps.artifact.outputs.dmg_path }}
           CHECKSUM_PATH: ${{ steps.artifact.outputs.checksum_path }}
+        working-directory: .
         shell: zsh {0}
         run: |
           release_notes=$'## 安装\n\n1. 下载下方 `Paimon-Pal-*-arm64.dmg`。\n2. 打开 DMG，将 `Paimon Pal.app` 拖入“应用程序”。\n3. 首次启动若被 macOS 拦截，打开“系统设置 → 隐私与安全性”，点击“仍要打开”。此操作只需一次。\n\n当前安装包要求 macOS 13.0+ 与 Apple Silicon Mac。项目采用 ad-hoc 签名分发，不进行 Apple 公证，也不上架 Mac App Store。'
