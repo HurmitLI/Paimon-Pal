@@ -10,11 +10,30 @@
   const IDLE_FRAME_MS = 110;
   const ACTIVE_FRAME_MS = 110;
   const IDLE_REST_MS = 5200;
+  const SOURCE_ANCHOR_X = 157;
+  const SOURCE_BASELINE_Y = 302;
+  const TARGET_VISIBLE_HEIGHT = 236;
   const sheets = {
     idle: 'assets/paimon/idle.png',
     listening: 'assets/paimon/listening.png',
     speaking: 'assets/paimon/speaking.png',
     clicking: 'assets/paimon/click.png',
+  };
+  const visualLayouts = {
+    idle: { scale: 1, offsets: [] },
+    listening: { scale: TARGET_VISIBLE_HEIGHT / 272, offsets: [] },
+    speaking: { scale: TARGET_VISIBLE_HEIGHT / 282, offsets: [] },
+    clicking: {
+      scale: TARGET_VISIBLE_HEIGHT / 267,
+      // The generated wave frames move the whole head about five source pixels.
+      // Counter that translation while preserving the intended hand gesture.
+      offsets: [
+        [0, 0], [0, 0], [-3, 0], [-6, 0],
+        [-8, 0], [-8, 0], [-10, 0], [0, 0],
+        [0, 0], [0, 0], [0, 0], [1, 0],
+        [0, 0], [1, 0], [0, 0], [0, 0],
+      ],
+    },
   };
   const frameCaches = new Map();
   const pixelRatio = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
@@ -45,6 +64,8 @@
   async function framesFor(mode) {
     if (frameCaches.has(mode)) return frameCaches.get(mode);
     const loading = loadSheet(sheets[mode]).then((image) => {
+      const layout = visualLayouts[mode] || visualLayouts.idle;
+      const unit = outputSize / SOURCE_FRAME_SIZE;
       const frames = [];
       for (let index = 0; index < FRAME_COUNT; index += 1) {
         const canvas = document.createElement('canvas');
@@ -53,16 +74,20 @@
         const frameContext = canvas.getContext('2d', { alpha: true });
         frameContext.imageSmoothingEnabled = true;
         frameContext.imageSmoothingQuality = 'high';
+        const [offsetX = 0, offsetY = 0] = layout.offsets[index] || [];
+        const drawX = Math.round((SOURCE_ANCHOR_X * (1 - layout.scale) + offsetX * layout.scale) * unit);
+        const drawY = Math.round((SOURCE_BASELINE_Y * (1 - layout.scale) + offsetY * layout.scale) * unit);
+        const drawSize = Math.round(outputSize * layout.scale);
         frameContext.drawImage(
           image,
           (index % GRID_SIZE) * SOURCE_FRAME_SIZE,
           Math.floor(index / GRID_SIZE) * SOURCE_FRAME_SIZE,
           SOURCE_FRAME_SIZE,
           SOURCE_FRAME_SIZE,
-          0,
-          0,
-          outputSize,
-          outputSize
+          drawX,
+          drawY,
+          drawSize,
+          drawSize
         );
         frames.push(canvas);
       }

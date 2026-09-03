@@ -198,6 +198,62 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 700));
     const restedFrame = await evaluate(petClient, `document.getElementById('pet-sprite').toDataURL()`);
     if (restedFrame !== petRender.firstFrame) throw new Error('desktop pet moved continuously during its idle rest');
+    const readPetVisualMetrics = `(() => {
+      const canvas = document.getElementById('pet-sprite');
+      const context = canvas.getContext('2d');
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let left = canvas.width;
+      let top = canvas.height;
+      let right = -1;
+      let bottom = -1;
+      let headWeight = 0;
+      let headWeightedX = 0;
+      const headLeft = Math.round(canvas.width * 0.24);
+      const headRight = Math.round(canvas.width * 0.76);
+      const headBottom = Math.round(canvas.height * 0.62);
+      for (let y = 0; y < canvas.height; y += 1) {
+        for (let x = 0; x < canvas.width; x += 1) {
+          const alpha = pixels[(y * canvas.width + x) * 4 + 3];
+          if (alpha < 16) continue;
+          left = Math.min(left, x);
+          top = Math.min(top, y);
+          right = Math.max(right, x);
+          bottom = Math.max(bottom, y);
+          if (x >= headLeft && x <= headRight && y <= headBottom) {
+            headWeight += alpha;
+            headWeightedX += x * alpha;
+          }
+        }
+      }
+      return {
+        height: bottom >= top ? bottom - top + 1 : 0,
+        bottom,
+        headX: headWeight ? headWeightedX / headWeight : 0
+      };
+    })()`;
+    const idleVisualMetrics = await evaluate(petClient, readPetVisualMetrics);
+    await petClient.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed', x: 114, y: 122, button: 'left', clickCount: 1,
+    });
+    await petClient.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased', x: 114, y: 122, button: 'left', clickCount: 1,
+    });
+    const expressionMetrics = [];
+    for (let index = 0; index < 12; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      expressionMetrics.push(await evaluate(petClient, readPetVisualMetrics));
+    }
+    const expressionHeights = expressionMetrics.map((item) => item.height);
+    const expressionBottoms = expressionMetrics.map((item) => item.bottom);
+    const expressionHeadXs = expressionMetrics.map((item) => item.headX).filter(Boolean);
+    if (expressionHeights.some((height) => Math.abs(height - idleVisualMetrics.height) > 4)) {
+      throw new Error(`pet expression changed visual size: ${JSON.stringify({ idleVisualMetrics, expressionMetrics })}`);
+    }
+    if (Math.max(...expressionBottoms) - Math.min(...expressionBottoms) > 3
+      || Math.max(...expressionHeadXs) - Math.min(...expressionHeadXs) > 5) {
+      throw new Error(`pet expression did not preserve its body anchor: ${JSON.stringify({ idleVisualMetrics, expressionMetrics })}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 800));
     const petStart = await evaluate(petClient, `({ x: window.screenX, y: window.screenY })`);
     await evaluate(petClient, `(() => {
       window.paimonPetAPI.beginDrag(100, 100);
@@ -328,6 +384,8 @@ async function main() {
       petStart,
       petEnd,
       petRender: { cssWidth: petRender.cssWidth, backingWidth: petRender.backingWidth, pixelRatio: petRender.pixelRatio },
+      idleVisualMetrics,
+      expressionMetrics,
       ttsBytes,
       ttsFirstChunkMs,
       petClickAssistant,
