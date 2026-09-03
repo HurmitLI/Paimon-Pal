@@ -8,6 +8,7 @@ const appJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'app.js'), 
 const workspaceJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'workspace.js'), 'utf8');
 const effectsJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'effects.js'), 'utf8');
 const assistantJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'paimon-assistant.js'), 'utf8');
+const petJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'pet.js'), 'utf8');
 const stylesCss = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'styles.css'), 'utf8');
 
 test('clipboard rows define both favorite icons before rendering entries', () => {
@@ -77,4 +78,6 @@ test('Paimon click opens a compact assistant surface without expanding the works
   assert.doesNotMatch(assistantJs, /function ensureExpanded/);
   assert.match(stylesCss, /#app\.assistant-only \.panel > \.topbar/);
   assert.match(stylesCss, /#app\.assistant-only \.paimon-assistant/);
+  assert.match(assistantJs, /onOpenWorkspaceFromNotch/);
+  assert.match(petJs, /openWorkspace/);
 });

@@ -31,6 +31,7 @@
   let animation = 'idle';
   let pointer = null;
   let dragging = false;
+  let docked = false;
 
   function loadSheet(source) {
     return new Promise((resolve, reject) => {
@@ -123,6 +124,7 @@
       startY: event.screenY,
       lastX: event.screenX,
       lastY: event.screenY,
+      startClientY: event.clientY,
     };
     dragging = false;
   });
@@ -144,11 +146,14 @@
   function finishPointer(event) {
     if (!pointer || pointer.id !== event.pointerId) return;
     const wasDragging = dragging;
+    const startedInNotchZone = docked && pointer.startClientY <= 44;
     pointer = null;
     dragging = false;
     document.body.classList.remove('is-dragging');
     if (wasDragging) {
       window.paimonPetAPI.endDrag();
+    } else if (startedInNotchZone) {
+      window.paimonPetAPI.openWorkspace();
     } else {
       void play('clicking', { once: true });
       window.paimonPetAPI.openAssistant();
@@ -160,7 +165,8 @@
 
   window.paimonPetAPI.onMode((payload) => {
     const mode = payload && payload.mode || 'idle';
-    stage.classList.toggle('is-docked', payload && payload.docked === true);
+    docked = payload && payload.docked === true;
+    stage.classList.toggle('is-docked', docked);
     if (mode === 'docking') {
       stage.classList.add('is-docking');
       return;

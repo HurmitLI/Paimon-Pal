@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('notchAPI', {
   closePaimonAssistantSurface: () => ipcRenderer.invoke('assistant:close-surface'),
   onOpenPaimonAssistant: (cb) => subscribe('assistant:open', () => cb()),
   onClosePaimonAssistant: (cb) => subscribe('assistant:close-request', () => cb()),
+  onOpenWorkspaceFromNotch: (cb) => subscribe('assistant:open-workspace', () => cb()),
   taskNotificationDismissed: (eventId) =>
     ipcRenderer.send('task-notification:dismissed', eventId),
   activateTaskNotification: (eventId) =>

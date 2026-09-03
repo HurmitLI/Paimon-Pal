@@ -71,7 +71,15 @@
     for (let index = 0; index < samples.length; index += 1) channel[index] = samples[index] / 32768;
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    if (Number(payload.sequence) === 0) {
+      const gain = context.createGain();
+      source.connect(gain);
+      gain.connect(context.destination);
+      gain.gain.setValueAtTime(0.001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(1, context.currentTime + 0.025);
+    } else {
+      source.connect(context.destination);
+    }
     activeSources.add(source);
     source.addEventListener('ended', () => activeSources.delete(source), { once: true });
     // Keep a tiny lead so adjacent PCM chunks meet without clicks, while the first
@@ -211,6 +219,25 @@
         workspacePanel.setAttribute('aria-hidden', 'true');
       }
     }, 160);
+  }
+
+  async function switchAssistantToWorkspace() {
+    if (assistantOpen) {
+      assistantOpen = false;
+      stopVoice();
+      panel.classList.remove('is-visible');
+      panel.hidden = true;
+      if (resizeFrame) cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
+      try { await window.notchAPI?.closePaimonAssistantSurface?.(); } catch (error) {}
+      appSurface?.classList.remove('assistant-only', 'assistant-anchor-left', 'assistant-anchor-right');
+      appSurface?.classList.add('collapsed');
+    }
+    if (workspacePanel) {
+      workspacePanel.inert = false;
+      workspacePanel.setAttribute('aria-hidden', 'false');
+    }
+    await window.NotchApp?.setMode?.(true);
   }
 
   function parseDuration(text) {
@@ -369,6 +396,7 @@
 
   window.notchAPI?.onOpenPaimonAssistant?.(openAssistant);
   window.notchAPI?.onClosePaimonAssistant?.(closeAssistant);
+  window.notchAPI?.onOpenWorkspaceFromNotch?.(switchAssistantToWorkspace);
   window.notchAPI?.onPaimonSpeechEvent?.((payload) => {
     if (payload?.id !== activeSpeechId) return;
     if (payload.type === 'chunk') {

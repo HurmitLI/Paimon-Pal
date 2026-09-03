@@ -254,6 +254,24 @@ async function main() {
       throw new Error(`pet click opened the wrong surface: ${JSON.stringify(petClickAssistant)}`);
     }
     trace('pet click opened only the compact assistant');
+    await evaluate(petClient, `window.paimonPetAPI.openWorkspace()`);
+    const workspaceSwitchDeadline = Date.now() + 3_000;
+    let workspaceAfterAssistant = null;
+    while (Date.now() < workspaceSwitchDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      workspaceAfterAssistant = await evaluate(mainClient, `({
+        expanded: document.getElementById('app').classList.contains('expanded'),
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        assistantHidden: document.getElementById('paimon-assistant').hidden,
+        toolbarDisplay: getComputedStyle(document.querySelector('.topbar')).display
+      })`);
+      if (workspaceAfterAssistant.expanded && workspaceAfterAssistant.assistantHidden) break;
+    }
+    if (!workspaceAfterAssistant?.expanded || workspaceAfterAssistant.assistantOnly
+      || !workspaceAfterAssistant.assistantHidden || workspaceAfterAssistant.toolbarDisplay === 'none') {
+      throw new Error(`notch could not take over from assistant: ${JSON.stringify(workspaceAfterAssistant)}`);
+    }
+    trace('notch switched compact assistant to full workspace');
     console.log(JSON.stringify({
       ok: true,
       expandedPath,
@@ -271,6 +289,7 @@ async function main() {
       ttsBytes,
       ttsFirstChunkMs,
       petClickAssistant,
+      workspaceAfterAssistant,
     }, null, 2));
   } finally {
     mainClient.close();

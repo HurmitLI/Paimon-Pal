@@ -1973,6 +1973,11 @@ ipcMain.on('pet:open-assistant', (event) => {
   if (isPetSender(event)) openPaimonAssistant();
 });
 
+ipcMain.on('pet:open-workspace', (event) => {
+  if (!isPetSender(event) || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('assistant:open-workspace');
+});
+
 ipcMain.handle('assistant:open-surface', (event, size) => {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
     return { ok: false, error: 'invalid_sender' };

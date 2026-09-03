@@ -24,7 +24,10 @@ PAIMON_REFERENCE_TEXT = (
     "嘿，你回来啦！今天想先休息一会儿，"
     "还是让我陪你做点事情呀？"
 )
-STREAMING_INTERVAL_SECONDS = 0.32
+# Qwen3-TTS can technically emit at 0.32s, but its first partial decode has too
+# little future context and can distort the opening one or two Chinese syllables.
+# 0.80s still feels immediate while giving the first phonemes enough context.
+STREAMING_INTERVAL_SECONDS = 0.80
 
 
 def parse_args() -> argparse.Namespace:
