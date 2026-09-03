@@ -397,6 +397,9 @@
   window.notchAPI?.onOpenPaimonAssistant?.(openAssistant);
   window.notchAPI?.onClosePaimonAssistant?.(closeAssistant);
   window.notchAPI?.onOpenWorkspaceFromNotch?.(switchAssistantToWorkspace);
+  window.notchAPI?.onEscape?.(() => {
+    if (assistantOpen) closeAssistant();
+  });
   window.notchAPI?.onPaimonSpeechEvent?.((payload) => {
     if (payload?.id !== activeSpeechId) return;
     if (payload.type === 'chunk') {

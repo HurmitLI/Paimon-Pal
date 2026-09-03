@@ -79,5 +79,6 @@ test('Paimon click opens a compact assistant surface without expanding the works
   assert.match(stylesCss, /#app\.assistant-only \.panel > \.topbar/);
   assert.match(stylesCss, /#app\.assistant-only \.paimon-assistant/);
   assert.match(assistantJs, /onOpenWorkspaceFromNotch/);
+  assert.match(assistantJs, /onEscape/);
   assert.match(petJs, /openWorkspace/);
 });

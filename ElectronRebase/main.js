@@ -1097,6 +1097,11 @@ function createWindow() {
   // 用 before-input-event 在分发前拦截并转发给渲染层处理（退出输入 / 收起面板）
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'Escape') {
+      if (currentMode === 'assistant') {
+        event.preventDefault();
+        requestClosePaimonAssistant();
+        return;
+      }
       mainWindow.webContents.send('key:escape');
     }
   });
@@ -1252,7 +1257,7 @@ function openPaimonAssistant() {
   mainWindow.webContents.send('assistant:open');
 }
 
-function closePaimonAssistantForDock() {
+function requestClosePaimonAssistant() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('assistant:close-request');
 }
@@ -1962,7 +1967,7 @@ ipcMain.on('pet:end-drag', (event) => {
   const nearNotch = Math.abs(centerX - screenCenterX) <= PET_DOCK_THRESHOLD_X
     && bounds.y <= display.bounds.y + getCollapsedHeight(display) + PET_DOCK_THRESHOLD_Y;
   if (nearNotch) {
-    closePaimonAssistantForDock();
+    requestClosePaimonAssistant();
     savePetState({ detached: false, x: null, y: null });
     petWindow.setBounds(petDockBounds(display));
     sendPetMode('docking', true);
@@ -2046,7 +2051,7 @@ ipcMain.handle('pet:detach', () => {
   return { ok: true, detached: true };
 });
 ipcMain.handle('pet:dock', () => {
-  closePaimonAssistantForDock();
+  requestClosePaimonAssistant();
   savePetState({ detached: false, x: null, y: null });
   if (petWindow && !petWindow.isDestroyed()) {
     petWindow.setBounds(petDockBounds(getWindowDisplay()));

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const WebSocket = require('ws');
 
 const outputDirectory = path.join(__dirname, '..', 'docs', 'qa');
@@ -313,6 +314,36 @@ async function main() {
     }
     trace('pet click opened only the compact assistant');
 
+    execFileSync('/usr/bin/osascript', [
+      '-e', 'tell application "Paimon Pal" to activate',
+      '-e', 'tell application "System Events" to key code 53',
+    ]);
+    const escapeDeadline = Date.now() + 2_000;
+    let assistantAfterEscape = null;
+    while (Date.now() < escapeDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      assistantAfterEscape = await evaluate(mainClient, `({
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        panelHidden: document.getElementById('paimon-assistant').hidden
+      })`);
+      if (!assistantAfterEscape.assistantOnly && assistantAfterEscape.panelHidden) break;
+    }
+    if (assistantAfterEscape?.assistantOnly || !assistantAfterEscape?.panelHidden) {
+      throw new Error(`Escape did not close the compact assistant: ${JSON.stringify(assistantAfterEscape)}`);
+    }
+    trace('Escape closed the compact assistant');
+
+    await evaluate(petClient, `window.paimonPetAPI.openAssistant()`);
+    const reopenForDockDeadline = Date.now() + 2_000;
+    while (Date.now() < reopenForDockDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const reopened = await evaluate(mainClient, `({
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        panelVisible: !document.getElementById('paimon-assistant').hidden
+      })`);
+      if (reopened.assistantOnly && reopened.panelVisible) break;
+    }
+
     const dockTarget = await evaluate(petClient, `(() => {
       const origin = { x: window.screenX, y: window.screenY };
       const start = { x: origin.x + innerWidth / 2, y: origin.y + innerHeight / 2 };
@@ -389,6 +420,7 @@ async function main() {
       ttsBytes,
       ttsFirstChunkMs,
       petClickAssistant,
+      assistantAfterEscape,
       dockTarget,
       assistantAfterDock,
       workspaceAfterAssistant,
