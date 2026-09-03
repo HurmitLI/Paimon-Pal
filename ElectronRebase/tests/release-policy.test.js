@@ -12,6 +12,7 @@ const entitlementsPath = path.join(projectRoot, 'build', 'entitlements.mac.plist
 const readmePath = path.join(projectRoot, 'README.md');
 const websiteDownloadPath = path.join(projectRoot, 'website', 'app', 'landingDownload.mjs');
 const websiteContentPath = path.join(projectRoot, 'website', 'app', 'landingContent.ts');
+const runtimeVerificationPath = path.join(projectRoot, 'scripts', 'verify-runtime-assets.js');
 const packageVersion = require(path.join(projectRoot, 'package.json')).version;
 const packageConfig = require(path.join(projectRoot, 'package.json'));
 
@@ -81,7 +82,10 @@ test('the release workflow lets manual runs verify artifacts while policy gates 
   assert.match(workflow, /^\s{2}workflow_dispatch:\s*$/m);
   assert.match(workflow, /id:\s*release[\s\S]*?run:\s*node scripts\/release-policy\.js/);
   assert.match(workflow, /name:\s*Build DMG[\s\S]*?run:\s*npm run build/);
+  assert.match(workflow, /name:\s*Build local AI runtime[\s\S]*?run:\s*\.\.\/Tools\/LocalModelProbe\/build_runtime\.sh/);
   assert.match(workflow, /name:\s*Verify and checksum DMG/);
+  assert.match(workflow, /Resources\/PaimonModel\/notchflow-model-probe/);
+  assert.match(workflow, /Resources\/PaimonModel\/mlx\.metallib/);
   assert.match(
     workflow,
     /name:\s*Publish GitHub Release\s*\n\s*if:\s*steps\.release\.outputs\.publish == 'true'/
@@ -107,6 +111,8 @@ test('the primary DMG excludes heavyweight optional model and voice assets', () 
   assert.match(serialized, /mlx\.metallib/);
   assert.doesNotMatch(serialized, /Qwen3-4B-Instruct-2507-4bit/);
   assert.doesNotMatch(serialized, /PaimonTTS/);
+  assert.equal(packageConfig.scripts.build.startsWith('npm run verify:runtime'), true);
+  assert.match(fs.readFileSync(runtimeVerificationPath, 'utf8'), /Missing required local AI runtime asset/);
 });
 
 test('release version and public download entry points stay aligned', () => {

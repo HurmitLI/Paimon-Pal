@@ -8,9 +8,10 @@
   "scripts": {
     "test": "node --test tests/*.test.js && env -u ELECTRON_RUN_AS_NODE electron tests/notch-focus.electron.js && node --check main.js && node --check main-services.js && node --check preload.js && node --check preload-pet.js && node --check renderer/domain.js && node --check renderer/effects.js && node --check renderer/app.js && node --check renderer/paimon-assistant.js && node --check renderer/pet.js && node --check renderer/workspace.js && node --check renderer/icon-motion.js && node --check renderer/notification.js && node --check build/afterPack.js && node --check scripts/codex-notify.js && node --check scripts/claude-notify.js",
     "start": "electron .",
-    "build": "electron-builder --mac dmg --publish never",
-    "build:zip": "electron-builder --mac zip",
-    "pack": "electron-builder --dir"
+    "verify:runtime": "node scripts/verify-runtime-assets.js",
+    "build": "npm run verify:runtime && electron-builder --mac dmg --publish never",
+    "build:zip": "npm run verify:runtime && electron-builder --mac zip",
+    "pack": "npm run verify:runtime && electron-builder --dir"
   },
   "devDependencies": {
     "electron": "^44.0.0",

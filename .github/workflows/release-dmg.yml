@@ -43,6 +43,9 @@ jobs:
       - name: Run desktop checks
         run: npm test
 
+      - name: Build local AI runtime
+        run: ../Tools/LocalModelProbe/build_runtime.sh
+
       - name: Build DMG
         run: npm run build
 
@@ -55,6 +58,8 @@ jobs:
           app_path="dist.noindex/mac-arm64/Paimon Pal.app"
           [[ -f ${dmg_path} ]]
           [[ -x "${app_path}/Contents/MacOS/Paimon Pal" ]]
+          [[ -x "${app_path}/Contents/Resources/PaimonModel/notchflow-model-probe" ]]
+          [[ -s "${app_path}/Contents/Resources/PaimonModel/mlx.metallib" ]]
           codesign --verify --deep --strict "${app_path}"
           hdiutil verify "${dmg_path}"
           shasum -a 256 "${dmg_path}" > "${dmg_path}.sha256"
