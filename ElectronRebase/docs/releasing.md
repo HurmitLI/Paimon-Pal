@@ -1,13 +1,13 @@
 # GitHub Release 发布流程
 
-TO-DO Panel 采用与 CC Switch 类似的开源分发方式：源码公开在 GitHub，安装包放在 Releases。项目明确使用 ad-hoc 签名、不进行 Apple 公证，也不上架 Mac App Store；用户首次启动时通过“隐私与安全性”确认“仍要打开”是正式安装流程。
+Paimon Pal 采用 GitHub Releases 分发：源码与安装包都保存在项目仓库。项目使用 ad-hoc 签名、不进行 Apple 公证，也不上架 Mac App Store；用户首次启动时通过“隐私与安全性”确认“仍要打开”是正式安装流程。
 
 ## 用户安装
 
-1. 从 [GitHub Releases](https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest) 下载 `TO-DO-Panel-*-arm64.dmg`。
-2. 打开 DMG，将 `TO-DO Panel.app` 拖入“应用程序”。
+1. 从 [GitHub Releases](https://github.com/HurmitLI/Paimon-Pal/releases/latest) 下载 `Paimon-Pal-*-arm64.dmg`。
+2. 打开 DMG，将 `Paimon Pal.app` 拖入“应用程序”。
 3. 首次启动若被 macOS 拦截，打开“系统设置 → 隐私与安全性”，点击“仍要打开”。
-4. 再次启动 TO-DO Panel，并按系统提示授权摄像头和麦克风。
+4. 再次启动 Paimon Pal，并按实际使用需要授权辅助功能、摄像头或麦克风。
 
 “仍要打开”只需要确认一次。安装包使用 ad-hoc 签名且未经过 Apple 公证，因此无法省略这一步。
 
@@ -21,13 +21,13 @@ npm test
 npm run build
 ```
 
-产物是 `dist.noindex/TO-DO-Panel-<版本>-arm64.dmg`。`.noindex` 后缀避免解包后的应用被 Spotlight 当成第二份已安装应用；`afterPack` 的 ad-hoc 签名校验失败会直接中断构建，
+产物是 `dist.noindex/Paimon-Pal-<版本>-arm64.dmg`。`.noindex` 后缀避免解包后的应用被 Spotlight 当成第二份已安装应用；`afterPack` 的 ad-hoc 签名校验失败会直接中断构建，
 所以只要命令成功退出，产物就是可分发的。
 
 ## 维护者经 GitHub 发布新版本
 
 > **前置条件**：本地 `main` 已跟踪 GitHub 的 `origin/main`，并已配置可写入
-> `xiaopu-ai/TO-DO-Panel` 的 GitHub 凭据。发布前先确认工作区干净且本地提交已经推送。
+> `HurmitLI/Paimon-Pal` 的 GitHub 凭据。发布前先确认工作区干净且本地提交已经推送。
 
 GitHub Actions 只在推送语义化版本标签时发布安装包。标签必须与 `package.json` 中的版本一致，
 所以先读版本号再打标签，不要照抄示例里的数字：
@@ -60,7 +60,7 @@ git push origin "v${version}"
 
 - 不提交 `node_modules/`、`dist/`、`.env`、录音、剪贴板图片或本地工作区数据。
 - 任何产品更新推送到 GitHub 前，都要同步核对 `package.json` / `package-lock.json`、`CHANGELOG.md`、README 当前稳定版本与下载入口。
-- 确认 GitHub Pages 下载按钮仍通过 `releases/latest` 选择当前标签的 `TO-DO-Panel-<版本>-arm64.dmg`；推送后必须在线验证最新 Release 资产和 Pages 入口。
+- 确认 GitHub Pages 下载按钮仍通过 `releases/latest` 选择当前标签的 `Paimon-Pal-<版本>-arm64.dmg`；推送后必须在线验证最新 Release 资产和 Pages 入口。
 - 确认 `scripts/codex-notify.js` 与 `scripts/claude-notify.js` 已随包装入（在 `build.files` 白名单内），
   否则装了 DMG 的用户按 README 注册钩子时会指向空路径。
 - 不把 API Key、密码、Apple ID 或其他凭据写入源码和 Release。

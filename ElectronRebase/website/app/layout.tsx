@@ -2,23 +2,23 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { assetPath } from "./assetPath.mjs";
 
-const title = "TO-DO Panel — 把 Mac 刘海变成随手工作台";
-const description = "常驻 macOS 刘海的本地工作台：首页、待办、笔记、链接、录制、密钥与可选剪贴板，数据留在当前 Mac。";
+const title = "Paimon Pal — 住在 Mac 刘海旁的本地派蒙伙伴";
+const description = "常驻 macOS 刘海的本地桌面伙伴与生产力工作台，支持桌面派蒙、本地对话、计时、音乐、待办、笔记、链接和录音。";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://xiaopu-ai.github.io/TO-DO-Panel/"),
+  metadataBase: new URL("https://hurmitli.github.io/Paimon-Pal/"),
   title,
   description,
-  applicationName: "TO-DO Panel",
-  keywords: ["TO-DO Panel", "macOS 刘海", "Mac 待办", "本地工作台", "Apple Silicon"],
+  applicationName: "Paimon Pal",
+  keywords: ["Paimon Pal", "macOS 刘海", "桌面宠物", "本地 AI", "Apple Silicon"],
   icons: { icon: [{ url: assetPath("/favicon.png"), type: "image/png" }], shortcut: assetPath("/favicon.png"), apple: assetPath("/favicon.png") },
   openGraph: {
     type: "website",
     locale: "zh_CN",
-    siteName: "TO-DO Panel",
+    siteName: "Paimon Pal",
     title,
     description,
-    images: [{ url: assetPath("/og.png"), width: 1200, height: 630, alt: "TO-DO Panel 官网分享封面" }],
+    images: [{ url: assetPath("/og.png"), width: 1200, height: 630, alt: "Paimon Pal 官网分享封面" }],
   },
   twitter: { card: "summary_large_image", title, description, images: [assetPath("/og.png")] },
 };

@@ -10,10 +10,10 @@
     ·
     <a href="#更新日志">更新日志</a>
     ·
-    <a href="https://github.com/xiaopu-ai/TO-DO-Panel/issues">反馈问题</a>
+    <a href="https://github.com/HurmitLI/Paimon-Pal/issues">反馈问题</a>
   </p>
   <p>
-    <img alt="Release" src="https://img.shields.io/github/v/release/xiaopu-ai/TO-DO-Panel?style=flat-square&color=7c8cff" />
+    <img alt="Release" src="https://img.shields.io/github/v/release/HurmitLI/Paimon-Pal?style=flat-square&color=7c8cff" />
     <img alt="macOS 13+ Apple Silicon" src="https://img.shields.io/badge/macOS-13%2B%20Apple%20Silicon-111318?style=flat-square&logo=apple" />
     <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-35c58b?style=flat-square" />
     <img alt="Electron 44" src="https://img.shields.io/badge/Electron-44-47848f?style=flat-square&logo=electron" />
@@ -54,9 +54,9 @@ Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时�
 
 ## 下载与安装
 
-> 当前稳定版本：**0.5.0** · 支持 **macOS 13.0+ 的 Apple Silicon Mac**
+> 当前稳定版本：**0.5.1** · 支持 **macOS 13.0+ 的 Apple Silicon Mac**
 
-1. 使用本项目 `dist.noindex/` 中生成的 `Paimon-Pal-*-arm64.dmg`；上游工作台的公开发行页保留在 [TO-DO Panel Releases](https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest) 供来源核对。
+1. 从 [Paimon Pal Releases](https://github.com/HurmitLI/Paimon-Pal/releases/latest) 下载 `Paimon-Pal-0.5.1-arm64.dmg`。
 2. 打开 DMG，将 `Paimon Pal.app` 拖入「应用程序」。
 3. 首次启动若被 macOS 拦截，前往「系统设置 → 隐私与安全性」，点击「仍要打开」。
 4. 再次启动，根据需要授予辅助功能、麦克风或摄像头权限。「当前窗口」只读标题并切换窗口，不需要屏幕录制权限。
@@ -67,7 +67,7 @@ Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时�
 
 ## 更新日志
 
-当前本地稳定版本为 **v0.5.0**。正在开发但尚未发布的改动会先记录在 `[未发布]`。
+当前稳定版本为 **v0.5.1**。正在开发但尚未发布的改动会先记录在 `[未发布]`。
 
 完整版本历史、修复内容与未发布改动见 [CHANGELOG.md](CHANGELOG.md)。
 

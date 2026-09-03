@@ -1,6 +1,6 @@
 {
   "name": "paimon-pal",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Paimon Pal - a local AI companion and workspace that lives under the MacBook notch",
   "main": "main.js",
   "author": "xiaopu-ai",

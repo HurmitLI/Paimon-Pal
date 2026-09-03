@@ -189,14 +189,14 @@ export default function HeroSection() {
             >
               {/* Product UI is shown only through real screenshots from the running app. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="hero-panel-image hero-panel-image-expanded" src={assetPath("/product-captures/home.jpg")} alt="TO-DO Panel 真实首页展开态" />
+              <img className="hero-panel-image hero-panel-image-expanded" src={assetPath("/product-captures/home.jpg")} alt="Paimon Pal 真实首页展开态" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="hero-panel-image hero-panel-image-collapsed" src={assetPath("/hero/panel-collapsed.png")} alt="TO-DO Panel 真实折叠态" />
+              <img className="hero-panel-image hero-panel-image-collapsed" src={assetPath("/hero/panel-collapsed.png")} alt="Paimon Pal 真实折叠态" />
               <button
                 className="hero-panel-trigger"
                 type="button"
                 aria-expanded={expanded}
-                aria-label={expanded ? "折叠 TO-DO Panel" : "展开 TO-DO Panel"}
+                aria-label={expanded ? "折叠 Paimon Pal" : "展开 Paimon Pal"}
                 aria-disabled={!entranceComplete}
                 onClick={togglePanel}
               />

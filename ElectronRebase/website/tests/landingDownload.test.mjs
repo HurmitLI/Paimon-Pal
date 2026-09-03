@@ -11,27 +11,27 @@ test("latest release selection returns the installable Apple Silicon DMG", async
     tag_name: "v1.0.4",
     assets: [
       {
-        name: "TO-DO-Panel-1.0.2-arm64.dmg.sha256",
+        name: "Paimon-Pal-1.0.2-arm64.dmg.sha256",
         content_type: "application/octet-stream",
         state: "uploaded",
         browser_download_url: "https://example.com/checksum",
       },
       {
-        name: "TO-DO-Panel-1.0.2-arm64.dmg",
+        name: "Paimon-Pal-1.0.2-arm64.dmg",
         content_type: "application/x-apple-diskimage",
         state: "uploaded",
-        browser_download_url: "https://example.com/TO-DO-Panel-1.0.2-arm64.dmg",
+        browser_download_url: "https://example.com/Paimon-Pal-1.0.2-arm64.dmg",
       },
       {
-        name: "TO-DO-Panel-1.0.4-arm64.dmg",
+        name: "Paimon-Pal-1.0.4-arm64.dmg",
         content_type: "application/x-apple-diskimage",
         state: "uploaded",
-        browser_download_url: "https://example.com/TO-DO-Panel-1.0.4-arm64.dmg",
+        browser_download_url: "https://example.com/Paimon-Pal-1.0.4-arm64.dmg",
       },
     ],
   };
 
-  assert.equal(selectMacDownloadUrl(release), "https://example.com/TO-DO-Panel-1.0.4-arm64.dmg");
+  assert.equal(selectMacDownloadUrl(release), "https://example.com/Paimon-Pal-1.0.4-arm64.dmg");
 });
 
 test("latest release selection safely falls back when no DMG is published", async () => {

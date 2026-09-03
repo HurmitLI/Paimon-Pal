@@ -1,4 +1,4 @@
-export const LATEST_RELEASE_API_URL = "https://api.github.com/repos/xiaopu-ai/TO-DO-Panel/releases/latest";
+export const LATEST_RELEASE_API_URL = "https://api.github.com/repos/HurmitLI/Paimon-Pal/releases/latest";
 
 export function selectMacDownloadUrl(release) {
   if (!release || !Array.isArray(release.assets)) return null;
@@ -13,7 +13,7 @@ export function selectMacDownloadUrl(release) {
     ? release.tag_name.replace(/^v/, "")
     : "";
   const expectedAssetName = releaseVersion
-    ? `TO-DO-Panel-${releaseVersion}-arm64.dmg`
+    ? `Paimon-Pal-${releaseVersion}-arm64.dmg`
     : "";
   const asset = installableAssets.find((candidate) => candidate.name === expectedAssetName)
     ?? installableAssets[0];

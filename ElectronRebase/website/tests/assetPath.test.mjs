@@ -8,7 +8,7 @@ test("public assets are rooted under the GitHub Pages repository path", async ()
   assert.ok(existsSync(moduleUrl), "assetPath.mjs must support repository-scoped Pages URLs");
   const { assetPathWithBase } = await import(moduleUrl.href);
 
-  assert.equal(assetPathWithBase("/hero/mac-scene-hq.png", "/TO-DO-Panel"), "/TO-DO-Panel/hero/mac-scene-hq.png");
-  assert.equal(assetPathWithBase("hero/mac-scene-hq.png", "/TO-DO-Panel/"), "/TO-DO-Panel/hero/mac-scene-hq.png");
+  assert.equal(assetPathWithBase("/hero/mac-scene-hq.png", "/Paimon-Pal"), "/Paimon-Pal/hero/mac-scene-hq.png");
+  assert.equal(assetPathWithBase("hero/mac-scene-hq.png", "/Paimon-Pal/"), "/Paimon-Pal/hero/mac-scene-hq.png");
   assert.equal(assetPathWithBase("/favicon.png", ""), "/favicon.png");
 });
