@@ -1252,6 +1252,11 @@ function openPaimonAssistant() {
   mainWindow.webContents.send('assistant:open');
 }
 
+function closePaimonAssistantForDock() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('assistant:close-request');
+}
+
 function toggleVisibility() {
   if (!mainWindow) {
     createWindow();
@@ -1957,6 +1962,7 @@ ipcMain.on('pet:end-drag', (event) => {
   const nearNotch = Math.abs(centerX - screenCenterX) <= PET_DOCK_THRESHOLD_X
     && bounds.y <= display.bounds.y + getCollapsedHeight(display) + PET_DOCK_THRESHOLD_Y;
   if (nearNotch) {
+    closePaimonAssistantForDock();
     savePetState({ detached: false, x: null, y: null });
     petWindow.setBounds(petDockBounds(display));
     sendPetMode('docking', true);
@@ -2040,6 +2046,7 @@ ipcMain.handle('pet:detach', () => {
   return { ok: true, detached: true };
 });
 ipcMain.handle('pet:dock', () => {
+  closePaimonAssistantForDock();
   savePetState({ detached: false, x: null, y: null });
   if (petWindow && !petWindow.isDestroyed()) {
     petWindow.setBounds(petDockBounds(getWindowDisplay()));

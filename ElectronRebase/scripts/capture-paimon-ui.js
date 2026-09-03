@@ -235,6 +235,8 @@ async function main() {
     }
     await evaluate(mainClient, `document.getElementById('paimon-close').click()`);
     await new Promise((resolve) => setTimeout(resolve, 350));
+    await evaluate(mainClient, `window.notchAPI.detachPet()`);
+    await new Promise((resolve) => setTimeout(resolve, 220));
     await evaluate(petClient, `window.paimonPetAPI.openAssistant()`);
     const petClickDeadline = Date.now() + 2_000;
     let petClickAssistant = null;
@@ -254,6 +256,46 @@ async function main() {
       throw new Error(`pet click opened the wrong surface: ${JSON.stringify(petClickAssistant)}`);
     }
     trace('pet click opened only the compact assistant');
+
+    const dockTarget = await evaluate(petClient, `(() => {
+      const origin = { x: window.screenX, y: window.screenY };
+      const start = { x: origin.x + innerWidth / 2, y: origin.y + innerHeight / 2 };
+      const target = {
+        x: screen.availLeft + (screen.availWidth - innerWidth) / 2,
+        y: screen.availTop
+      };
+      window.paimonPetAPI.beginDrag(start.x, start.y);
+      window.paimonPetAPI.dragTo(start.x + target.x - origin.x, start.y + target.y - origin.y);
+      window.paimonPetAPI.endDrag();
+      return { origin, target };
+    })()`);
+    const dockDeadline = Date.now() + 2_000;
+    let assistantAfterDock = null;
+    while (Date.now() < dockDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assistantAfterDock = await evaluate(mainClient, `({
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        panelHidden: document.getElementById('paimon-assistant').hidden
+      })`);
+      if (!assistantAfterDock.assistantOnly && assistantAfterDock.panelHidden) break;
+    }
+    if (assistantAfterDock?.assistantOnly || !assistantAfterDock?.panelHidden) {
+      throw new Error(`assistant remained open after Paimon docked: ${JSON.stringify({ dockTarget, assistantAfterDock })}`);
+    }
+    trace('docking Paimon closed the compact assistant');
+
+    await evaluate(mainClient, `window.notchAPI.detachPet()`);
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    await evaluate(petClient, `window.paimonPetAPI.openAssistant()`);
+    const reopenDeadline = Date.now() + 2_000;
+    while (Date.now() < reopenDeadline) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      const reopened = await evaluate(mainClient, `({
+        assistantOnly: document.getElementById('app').classList.contains('assistant-only'),
+        panelVisible: !document.getElementById('paimon-assistant').hidden
+      })`);
+      if (reopened.assistantOnly && reopened.panelVisible) break;
+    }
     await evaluate(petClient, `window.paimonPetAPI.openWorkspace()`);
     const workspaceSwitchDeadline = Date.now() + 3_000;
     let workspaceAfterAssistant = null;
@@ -289,6 +331,8 @@ async function main() {
       ttsBytes,
       ttsFirstChunkMs,
       petClickAssistant,
+      dockTarget,
+      assistantAfterDock,
       workspaceAfterAssistant,
     }, null, 2));
   } finally {
