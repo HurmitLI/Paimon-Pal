@@ -22,12 +22,13 @@ const http = require('http');
 const dns = require('dns');
 const zlib = require('zlib');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const {
   isPrivateAddress,
   extractPageTitle,
   recordingExtension,
   normalizeWindowRows,
+  mergeWindowCaptureTitles,
   todoReminderState,
   todoReminderTimerDelay,
   taskNotificationIdentity,
@@ -253,7 +254,14 @@ let mainWindow = null;
 let tray = null;
 let petWindow = null;
 let petDragState = null;
-let activeTtsProcess = null;
+let ttsWorker = null;
+let ttsWorkerReady = null;
+let ttsWorkerReadyResolve = null;
+let ttsWorkerStdout = '';
+let ttsWorkerStderr = '';
+let ttsActiveRequestId = '';
+let ttsIdleTimer = null;
+const ttsRequests = new Map();
 let currentMode = 'collapsed';
 let currentTab = 'home';
 let collapseWatchdog = null;
@@ -1740,59 +1748,182 @@ function paimonTtsAvailability() {
     .every((item) => fs.existsSync(item));
 }
 
-function speakLocalPaimon(rawText) {
-  const text = String(rawText || '')
-    .replace(/^\s*旅行者[，,。.!！?？:：\s]*/u, '')
-    .trim()
-    .slice(0, 220);
-  if (!text) return Promise.resolve({ ok: false, error: 'empty_text' });
+const TTS_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+function paimonTtsEnvironment(runtime) {
+  return {
+    ...process.env,
+    PYTHONHOME: runtime.pythonHome,
+    PYTHONPATH: runtime.pythonPath,
+    PYTHONDONTWRITEBYTECODE: '1',
+    HF_HUB_OFFLINE: '1',
+    TRANSFORMERS_OFFLINE: '1',
+    TOKENIZERS_PARALLELISM: 'false',
+  };
+}
+
+function scheduleTtsIdleShutdown() {
+  if (ttsIdleTimer) clearTimeout(ttsIdleTimer);
+  ttsIdleTimer = setTimeout(() => stopPaimonTtsWorker('idle'), TTS_IDLE_TIMEOUT_MS);
+}
+
+function resolveTtsRequest(id, result) {
+  const request = ttsRequests.get(id);
+  if (!request) return;
+  ttsRequests.delete(id);
+  if (ttsActiveRequestId === id) ttsActiveRequestId = '';
+  request.resolve(result);
+  scheduleTtsIdleShutdown();
+}
+
+function handleTtsProtocolMessage(message) {
+  if (!message || typeof message !== 'object') return;
+  if (message.type === 'ready') {
+    if (ttsWorkerReadyResolve) ttsWorkerReadyResolve({ ok: true, loadSeconds: message.load_seconds });
+    ttsWorkerReadyResolve = null;
+    return;
+  }
+  const id = String(message.id || '');
+  const request = ttsRequests.get(id);
+  if (!request) return;
+  if (message.type === 'chunk') {
+    request.audioBytes += Buffer.byteLength(String(message.pcm16_base64 || ''), 'base64');
+    if (!request.firstChunkMs) request.firstChunkMs = Date.now() - request.startedAt;
+    if (request.sender && !request.sender.isDestroyed()) {
+      request.sender.send('assistant:speech-event', message);
+    }
+    return;
+  }
+  if (request.sender && !request.sender.isDestroyed()) {
+    request.sender.send('assistant:speech-event', message);
+  }
+  if (message.type === 'done') {
+    resolveTtsRequest(id, {
+      ok: true,
+      streamed: true,
+      audioBytes: Number(message.audio_bytes) || request.audioBytes,
+      firstChunkMs: Number(message.first_chunk_ms) || request.firstChunkMs,
+      generationSeconds: Number(message.generation_seconds) || 0,
+    });
+  } else if (message.type === 'cancelled') {
+    resolveTtsRequest(id, { ok: false, error: 'tts_cancelled' });
+  } else if (message.type === 'error') {
+    console.warn(`Paimon TTS failed: ${String(message.error || '').trim()}`);
+    resolveTtsRequest(id, { ok: false, error: 'tts_failed' });
+  }
+}
+
+function stopPaimonTtsWorker(reason = 'shutdown') {
+  if (ttsIdleTimer) clearTimeout(ttsIdleTimer);
+  ttsIdleTimer = null;
+  const child = ttsWorker;
+  ttsWorker = null;
+  ttsWorkerReady = null;
+  ttsWorkerReadyResolve = null;
+  ttsWorkerStdout = '';
+  if (child && !child.killed) {
+    try { child.stdin.write(`${JSON.stringify({ type: 'shutdown', reason })}\n`); } catch (error) {}
+    setTimeout(() => {
+      if (!child.killed) child.kill('SIGTERM');
+    }, 500).unref();
+  }
+  for (const [id] of ttsRequests) resolveTtsRequest(id, { ok: false, error: 'tts_stopped' });
+  ttsActiveRequestId = '';
+  if (ttsIdleTimer) clearTimeout(ttsIdleTimer);
+  ttsIdleTimer = null;
+}
+
+function ensurePaimonTtsWorker() {
+  if (ttsWorker && !ttsWorker.killed && ttsWorkerReady) return ttsWorkerReady;
   const runtime = paimonTtsRuntime();
   const required = [runtime.python, runtime.script, runtime.model, runtime.reference];
   if (required.some((item) => !fs.existsSync(item))) {
     return Promise.resolve({ ok: false, error: 'tts_unavailable' });
   }
-  if (activeTtsProcess) {
-    activeTtsProcess.kill('SIGTERM');
-    activeTtsProcess = null;
+  ttsWorkerStderr = '';
+  ttsWorkerStdout = '';
+  ttsWorkerReady = new Promise((resolve) => { ttsWorkerReadyResolve = resolve; });
+  const child = spawn(runtime.python, [
+    runtime.script,
+    '--server',
+    '--model', runtime.model,
+    '--reference', runtime.reference,
+  ], {
+    cwd: runtime.root,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: paimonTtsEnvironment(runtime),
+  });
+  ttsWorker = child;
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    ttsWorkerStdout += chunk;
+    const lines = ttsWorkerStdout.split(/\r?\n/);
+    ttsWorkerStdout = lines.pop() || '';
+    for (const line of lines) {
+      try { handleTtsProtocolMessage(JSON.parse(line)); } catch (error) {}
+    }
+  });
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => {
+    ttsWorkerStderr = `${ttsWorkerStderr}${chunk}`.slice(-4000);
+  });
+  const handleExit = () => {
+    if (ttsWorker !== child) return;
+    const readyResolve = ttsWorkerReadyResolve;
+    ttsWorker = null;
+    ttsWorkerReady = null;
+    ttsWorkerReadyResolve = null;
+    if (readyResolve) readyResolve({ ok: false, error: 'tts_start_failed' });
+    for (const [id] of ttsRequests) resolveTtsRequest(id, { ok: false, error: 'tts_failed' });
+    if (ttsWorkerStderr.trim()) console.warn(`Paimon TTS worker stopped: ${ttsWorkerStderr.trim()}`);
+  };
+  child.once('error', handleExit);
+  child.once('exit', handleExit);
+  scheduleTtsIdleShutdown();
+  return ttsWorkerReady;
+}
+
+async function warmPaimonTts() {
+  const result = await ensurePaimonTtsWorker();
+  scheduleTtsIdleShutdown();
+  return result;
+}
+
+async function stopPaimonSpeech() {
+  if (ttsWorker && !ttsWorker.killed) {
+    try { ttsWorker.stdin.write(`${JSON.stringify({ type: 'cancel' })}\n`); } catch (error) {}
   }
-  const outputDirectory = path.join(app.getPath('temp'), 'PaimonPalTTS');
-  fs.mkdirSync(outputDirectory, { recursive: true });
-  const outputPath = path.join(outputDirectory, `reply-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.wav`);
+  const activeId = ttsActiveRequestId;
+  if (activeId) resolveTtsRequest(activeId, { ok: false, error: 'tts_cancelled' });
+  return { ok: true };
+}
+
+async function speakLocalPaimon(sender, payload) {
+  const requestPayload = payload && typeof payload === 'object' ? payload : { text: payload };
+  const text = String(requestPayload.text || '')
+    .replace(/^\s*旅行者[，,。.!！?？:：\s]*/u, '')
+    .trim()
+    .slice(0, 220);
+  const id = String(requestPayload.id || crypto.randomUUID());
+  if (!text) return { ok: false, error: 'empty_text' };
+  await stopPaimonSpeech();
+  const ready = await ensurePaimonTtsWorker();
+  if (!ready || !ready.ok || !ttsWorker || ttsWorker.killed) return ready;
+  scheduleTtsIdleShutdown();
   return new Promise((resolve) => {
-    const child = execFile(
-      runtime.python,
-      [runtime.script, '--model', runtime.model, '--reference', runtime.reference, '--output', outputPath, '--text', text],
-      {
-        cwd: runtime.root,
-        timeout: 240_000,
-        maxBuffer: 2 * 1024 * 1024,
-        env: {
-          ...process.env,
-          PYTHONHOME: runtime.pythonHome,
-          PYTHONPATH: runtime.pythonPath,
-          PYTHONDONTWRITEBYTECODE: '1',
-          HF_HUB_OFFLINE: '1',
-          TRANSFORMERS_OFFLINE: '1',
-          TOKENIZERS_PARALLELISM: 'false',
-        },
-      },
-      (error, stdout, stderr) => {
-        if (activeTtsProcess === child) activeTtsProcess = null;
-        if (error || !fs.existsSync(outputPath)) {
-          console.warn(`Paimon TTS failed: ${String(stderr || error && error.message || '').trim()}`);
-          resolve({ ok: false, error: error && error.killed ? 'tts_timeout' : 'tts_failed' });
-          return;
-        }
-        try {
-          const audio = fs.readFileSync(outputPath);
-          fs.unlinkSync(outputPath);
-          resolve({ ok: true, mimeType: 'audio/wav', base64: audio.toString('base64') });
-        } catch (readError) {
-          resolve({ ok: false, error: 'tts_read_failed' });
-        }
-      }
-    );
-    activeTtsProcess = child;
+    ttsActiveRequestId = id;
+    ttsRequests.set(id, {
+      resolve,
+      sender,
+      startedAt: Date.now(),
+      firstChunkMs: 0,
+      audioBytes: 0,
+    });
+    try {
+      ttsWorker.stdin.write(`${JSON.stringify({ type: 'synthesize', id, text })}\n`);
+    } catch (error) {
+      resolveTtsRequest(id, { ok: false, error: 'tts_failed' });
+    }
   });
 }
 
@@ -1914,7 +2045,9 @@ ipcMain.handle('pet:dock', () => {
 });
 ipcMain.handle('assistant:status', () => localModelAvailability());
 ipcMain.handle('assistant:ask', (event, payload) => askLocalPaimon(payload));
-ipcMain.handle('assistant:speak', (event, text) => speakLocalPaimon(text));
+ipcMain.handle('assistant:tts-warmup', () => warmPaimonTts());
+ipcMain.handle('assistant:speak', (event, payload) => speakLocalPaimon(event.sender, payload));
+ipcMain.handle('assistant:speech-stop', () => stopPaimonSpeech());
 
 ipcMain.handle('settings:get', () => publicAppSettings());
 ipcMain.handle('settings:set-feature', (event, payload) => {
@@ -2386,13 +2519,13 @@ function run() {
     const title = String(get('kCGWindowName') || '').replace(/\\s+/g, ' ').trim();
     const windowNumber = Number(get('kCGWindowNumber'));
     // 没有「屏幕录制」权限时 CGWindowList 仍会返回别的应用的窗口，只是 kCGWindowName
-    // 一律为空，系统不报任何错。于是下面这句会把所有行丢掉、列表看起来像「真的没窗口」。
-    // 统计候选数与其中有标题的条数，好让主进程区分这两种情况。
+    // 一律为空，系统不报任何错。保留这些无标题行并统计候选数，让主进程可以用
+    // Paimon Pal 本体的 desktopCapturer 结果按窗口号补全，而不是直接把窗口丢掉。
     if (layer === 0 && pid && appName && windowNumber) {
       candidates += 1;
       if (title) titled += 1;
     }
-    if (layer !== 0 || !pid || !appName || !title || !windowNumber) continue;
+    if (layer !== 0 || !pid || !appName || !windowNumber) continue;
     if (!Object.prototype.hasOwnProperty.call(appPaths, pid)) {
       const meta = { appPath: '', policy: -1 };
       try {
@@ -2472,7 +2605,7 @@ function runJxa(script, args = []) {
   });
 }
 
-async function scanCurrentWindows() {
+async function scanCurrentWindows(options = {}) {
   if (process.platform !== 'darwin') return { items: [], error: 'unsupported' };
   try {
     const raw = await runJxa(WINDOWS_LIST_JXA);
@@ -2481,7 +2614,24 @@ async function scanCurrentWindows() {
     const payload = Array.isArray(parsed)
       ? { rows: parsed, candidates: parsed.length, titled: parsed.length }
       : parsed;
-    const rows = normalizeWindowRows(payload.rows || []).filter((item) => item.pid !== process.pid);
+    let captureSources = [];
+    const screenStatus = systemPreferences.getMediaAccessStatus('screen');
+    if (screenStatus === 'granted' || options.requestPermission === true) {
+      try {
+        captureSources = await desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: 0, height: 0 },
+          fetchWindowIcons: false,
+        });
+      } catch (error) {
+        captureSources = [];
+      }
+    }
+    // osascript 是独立子进程，macOS 有时不会把授予 Paimon Pal 的录屏权限传给它。
+    // Electron desktopCapturer 则以本应用身份读取窗口名；用窗口号合并后，授权给
+    // Paimon Pal 本体即可生效，不再要求用户给“终端”或“osascript”额外授权。
+    const mergedRows = mergeWindowCaptureTitles(payload.rows || [], captureSources);
+    const rows = normalizeWindowRows(mergedRows).filter((item) => item.pid !== process.pid);
     // 有候选窗口却一个标题都读不到 = 缺「屏幕录制」权限。macOS 10.15 起读取其他应用的
     // 窗口标题需要该权限，系统不会报错也不会弹提示，只是静默返回空标题，
     // 结果界面上只剩一句「没有读取到可切换窗口」，把权限问题伪装成了「真的没窗口」。
@@ -2506,8 +2656,8 @@ async function scanCurrentWindows() {
   }
 }
 
-ipcMain.handle('windows:list', async () => {
-  return scanCurrentWindows();
+ipcMain.handle('windows:list', async (event, options) => {
+  return scanCurrentWindows(options && typeof options === 'object' ? options : {});
 });
 
 ipcMain.handle('windows:focus', async (event, windowId) => {
@@ -3770,7 +3920,7 @@ app.on('will-quit', () => {
   stopTaskNotificationServer();
   if (petWindow && !petWindow.isDestroyed()) petWindow.destroy();
   closeAllTranscriptionSessions();
-  if (activeTtsProcess) activeTtsProcess.kill('SIGTERM');
+  stopPaimonTtsWorker('app-quit');
   globalShortcut.unregisterAll();
   stopClipboardPolling();
 });

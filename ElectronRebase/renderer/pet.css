@@ -32,18 +32,14 @@ body.is-dragging { cursor: grabbing; }
 .pet-sprite {
   width: 216px;
   height: 216px;
-  background-repeat: no-repeat;
-  background-size: 400% 400%;
-  background-position: 0 0;
-  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.34));
+  display: block;
+  opacity: 0;
+  filter: drop-shadow(0 9px 11px rgba(0, 0, 0, 0.22));
   transform-origin: 50% 86%;
-  will-change: background-position, transform;
+  transition: opacity 90ms ease;
 }
 
-.pet-sprite.is-idle { background-image: url('assets/paimon/idle.png'); }
-.pet-sprite.is-listening { background-image: url('assets/paimon/listening.png'); }
-.pet-sprite.is-speaking { background-image: url('assets/paimon/speaking.png'); }
-.pet-sprite.is-clicking { background-image: url('assets/paimon/click.png'); }
+.pet-stage.is-ready .pet-sprite { opacity: 1; }
 
 .pet-stage.is-docked .pet-sprite {
   transform: scale(.9);
@@ -80,5 +76,5 @@ body.is-dragging { cursor: grabbing; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pet-sprite { background-position: 0 0 !important; }
+  .pet-sprite { transition: none; }
 }

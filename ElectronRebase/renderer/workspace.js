@@ -2062,7 +2062,9 @@
       const heading = document.createElement('strong');
       heading.textContent = title;
       const hint = document.createElement('span');
-      hint.textContent = `系统设置 → 隐私与安全性 → ${pane}，允许 Paimon Pal 后重试。`;
+      hint.textContent = screenRecording
+        ? '允许 Paimon Pal 后点“重新检测”；如果已经开启过，请先关闭再重新开启当前安装版。'
+        : `系统设置 → 隐私与安全性 → ${pane}，允许 Paimon Pal 后重试。`;
       const action = document.createElement('button');
       action.type = 'button';
       action.className = 'window-permission-open';
@@ -2072,7 +2074,12 @@
           window.notchAPI.openPrivacySettings(screenRecording ? 'screen-recording' : 'accessibility');
         }
       });
-      empty.append(heading, hint, action);
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'window-permission-open';
+      retry.textContent = '重新检测';
+      retry.addEventListener('click', () => refreshWindows(true));
+      empty.append(heading, hint, action, retry);
       windowList.appendChild(empty);
       return;
     }
@@ -2126,7 +2133,7 @@
     renderWindows();
     let result;
     try {
-      result = await window.notchAPI.listWindows();
+      result = await window.notchAPI.listWindows({ requestPermission: force === true });
     } catch (error) {
       result = { items: [], error: 'accessibility_permission_required' };
     }

@@ -1,39 +1,117 @@
 (function initPaimonPet() {
   const stage = document.getElementById('pet-stage');
   const sprite = document.getElementById('pet-sprite');
-  if (!stage || !sprite || !window.paimonPetAPI) return;
+  if (!stage || !(sprite instanceof HTMLCanvasElement) || !window.paimonPetAPI) return;
 
   const FRAME_COUNT = 16;
-  const FRAME_MS = 110;
+  const GRID_SIZE = 4;
+  const SOURCE_FRAME_SIZE = 314;
+  const DISPLAY_SIZE = 216;
+  const IDLE_FRAME_MS = 110;
+  const ACTIVE_FRAME_MS = 110;
+  const IDLE_REST_MS = 5200;
+  const sheets = {
+    idle: 'assets/paimon/idle.png',
+    listening: 'assets/paimon/listening.png',
+    speaking: 'assets/paimon/speaking.png',
+    clicking: 'assets/paimon/click.png',
+  };
+  const frameCaches = new Map();
+  const pixelRatio = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+  const outputSize = Math.round(DISPLAY_SIZE * pixelRatio);
+  const context = sprite.getContext('2d', { alpha: true, desynchronized: false });
+  sprite.width = outputSize;
+  sprite.height = outputSize;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+
   let frame = 0;
   let frameTimer = null;
+  let playGeneration = 0;
   let animation = 'idle';
   let pointer = null;
   let dragging = false;
 
-  function drawFrame() {
-    const x = frame % 4;
-    const y = Math.floor(frame / 4);
-    sprite.style.backgroundPosition = `${(x / 3) * 100}% ${(y / 3) * 100}%`;
+  function loadSheet(source) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = source;
+    });
   }
 
-  function play(next, once = false) {
+  async function framesFor(mode) {
+    if (frameCaches.has(mode)) return frameCaches.get(mode);
+    const loading = loadSheet(sheets[mode]).then((image) => {
+      const frames = [];
+      for (let index = 0; index < FRAME_COUNT; index += 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = outputSize;
+        canvas.height = outputSize;
+        const frameContext = canvas.getContext('2d', { alpha: true });
+        frameContext.imageSmoothingEnabled = true;
+        frameContext.imageSmoothingQuality = 'high';
+        frameContext.drawImage(
+          image,
+          (index % GRID_SIZE) * SOURCE_FRAME_SIZE,
+          Math.floor(index / GRID_SIZE) * SOURCE_FRAME_SIZE,
+          SOURCE_FRAME_SIZE,
+          SOURCE_FRAME_SIZE,
+          0,
+          0,
+          outputSize,
+          outputSize
+        );
+        frames.push(canvas);
+      }
+      return frames;
+    });
+    frameCaches.set(mode, loading);
+    return loading;
+  }
+
+  function drawFrame(frames) {
+    context.clearRect(0, 0, outputSize, outputSize);
+    context.drawImage(frames[frame], 0, 0);
+    stage.classList.add('is-ready');
+  }
+
+  async function play(next, options = {}) {
+    const generation = ++playGeneration;
     animation = next;
     frame = 0;
     sprite.className = `pet-sprite is-${next}`;
-    drawFrame();
-    if (frameTimer) clearInterval(frameTimer);
-    frameTimer = setInterval(() => {
+    if (frameTimer) clearTimeout(frameTimer);
+    let frames;
+    try {
+      frames = await framesFor(next);
+    } catch (error) {
+      return;
+    }
+    if (generation !== playGeneration) return;
+    drawFrame(frames);
+
+    const once = options.once === true;
+    const startWithRest = options.startWithRest === true;
+    const frameDelay = next === 'idle' ? IDLE_FRAME_MS : ACTIVE_FRAME_MS;
+    const advance = () => {
+      if (generation !== playGeneration) return;
       frame += 1;
       if (frame >= FRAME_COUNT) {
         if (once) {
-          play('idle');
+          void play('idle', { startWithRest: true });
           return;
         }
         frame = 0;
+        drawFrame(frames);
+        frameTimer = setTimeout(advance, next === 'idle' ? IDLE_REST_MS : frameDelay);
+        return;
       }
-      drawFrame();
-    }, FRAME_MS);
+      drawFrame(frames);
+      frameTimer = setTimeout(advance, frameDelay);
+    };
+    frameTimer = setTimeout(advance, startWithRest && next === 'idle' ? IDLE_REST_MS : frameDelay);
   }
 
   stage.addEventListener('pointerdown', (event) => {
@@ -72,7 +150,7 @@
     if (wasDragging) {
       window.paimonPetAPI.endDrag();
     } else {
-      play('clicking', true);
+      void play('clicking', { once: true });
       window.paimonPetAPI.openAssistant();
     }
   }
@@ -88,8 +166,10 @@
       return;
     }
     stage.classList.remove('is-docking');
-    play(['idle', 'listening', 'speaking', 'clicking'].includes(mode) ? mode : 'idle');
+    void play(['idle', 'listening', 'speaking', 'clicking'].includes(mode) ? mode : 'idle', {
+      startWithRest: mode === 'idle',
+    });
   });
 
-  play(animation);
+  void play(animation, { startWithRest: true });
 })();

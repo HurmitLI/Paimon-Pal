@@ -7,6 +7,8 @@ const {
   extractFaviconHref,
   recordingExtension,
   normalizeWindowRows,
+  parseDesktopWindowId,
+  mergeWindowCaptureTitles,
   todoReminderState,
   todoReminderTimerDelay,
   taskNotificationIdentity,
@@ -139,6 +141,21 @@ test('normalizeWindowRows keeps all named CGWindow entries with stable window id
     'window-10-502',
     'window-10-503',
   ]);
+});
+
+test('desktopCapturer titles repair blank osascript window names under app screen permission', () => {
+  assert.equal(parseDesktopWindowId('window:53696:0'), 53696);
+  assert.equal(parseDesktopWindowId('screen:0:0'), 0);
+  const merged = mergeWindowCaptureTitles([
+    { pid: 650, appName: '微信', title: '', windowNumber: 53696 },
+    { pid: 42, appName: 'Code', title: '已有标题', windowNumber: 100 },
+  ], [
+    { id: 'window:53696:0', name: '微信' },
+    { id: 'window:100:0', name: '不应覆盖' },
+  ]);
+  assert.equal(merged[0].title, '微信');
+  assert.equal(merged[1].title, '已有标题');
+  assert.equal(normalizeWindowRows(merged).length, 2);
 });
 
 test('todoReminderState fires once within the final hour and expires after the DDL', () => {

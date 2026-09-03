@@ -183,6 +183,21 @@ async function main() {
 
     await evaluate(mainClient, `window.notchAPI.detachPet()`);
     await new Promise((resolve) => setTimeout(resolve, 180));
+    const petRender = await evaluate(petClient, `(() => {
+      const canvas = document.getElementById('pet-sprite');
+      return {
+        cssWidth: canvas.clientWidth,
+        backingWidth: canvas.width,
+        pixelRatio: devicePixelRatio,
+        firstFrame: canvas.toDataURL()
+      };
+    })()`);
+    if (petRender.backingWidth < Math.round(petRender.cssWidth * petRender.pixelRatio)) {
+      throw new Error(`desktop pet is not rendered at Retina resolution: ${JSON.stringify(petRender)}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const restedFrame = await evaluate(petClient, `document.getElementById('pet-sprite').toDataURL()`);
+    if (restedFrame !== petRender.firstFrame) throw new Error('desktop pet moved continuously during its idle rest');
     const petStart = await evaluate(petClient, `({ x: window.screenX, y: window.screenY })`);
     await evaluate(petClient, `(() => {
       window.paimonPetAPI.beginDrag(100, 100);
@@ -195,11 +210,28 @@ async function main() {
     const petPath = await capture(petClient, 'paimon-pal-pet.png');
     await evaluate(mainClient, `window.notchAPI.dockPet()`);
     let ttsBytes = 0;
+    let ttsFirstChunkMs = 0;
     if (process.env.PAIMON_TEST_TTS === '1') {
-      const ttsResult = await evaluate(mainClient, `window.notchAPI.speakPaimon('你好，今天也一起加油吧。')`);
-      if (!ttsResult || !ttsResult.ok || !ttsResult.base64) throw new Error(`local TTS failed: ${JSON.stringify(ttsResult)}`);
-      ttsBytes = Math.floor(ttsResult.base64.length * 3 / 4);
+      const warmResult = await evaluate(mainClient, `window.notchAPI.warmPaimonSpeech()`);
+      if (!warmResult || !warmResult.ok) throw new Error(`local TTS warmup failed: ${JSON.stringify(warmResult)}`);
+      const ttsResult = await evaluate(mainClient, `new Promise((resolve) => {
+        const id = 'qa-tts-' + Date.now();
+        let chunks = 0;
+        const unsubscribe = window.notchAPI.onPaimonSpeechEvent((event) => {
+          if (event && event.id === id && event.type === 'chunk') chunks += 1;
+        });
+        window.notchAPI.speakPaimon({ id, text: '你好，今天也一起加油吧。' }).then((result) => {
+          unsubscribe();
+          resolve({ ...result, chunks });
+        });
+      })`);
+      if (!ttsResult || !ttsResult.ok || !ttsResult.streamed || ttsResult.chunks < 1) {
+        throw new Error(`local streaming TTS failed: ${JSON.stringify(ttsResult)}`);
+      }
+      ttsBytes = ttsResult.audioBytes;
+      ttsFirstChunkMs = ttsResult.firstChunkMs;
       if (ttsBytes < 20_000) throw new Error(`local TTS output is unexpectedly small: ${ttsBytes}`);
+      if (!ttsFirstChunkMs || ttsFirstChunkMs > 2500) throw new Error(`local TTS first chunk is too slow: ${ttsFirstChunkMs}ms`);
     }
     await evaluate(mainClient, `document.getElementById('paimon-close').click()`);
     await new Promise((resolve) => setTimeout(resolve, 350));
@@ -235,7 +267,9 @@ async function main() {
       modelReply,
       petStart,
       petEnd,
+      petRender: { cssWidth: petRender.cssWidth, backingWidth: petRender.backingWidth, pixelRatio: petRender.pixelRatio },
       ttsBytes,
+      ttsFirstChunkMs,
       petClickAssistant,
     }, null, 2));
   } finally {

@@ -20,8 +20,10 @@
   let busy = false;
   let hoverHideTimer = null;
   let voiceEnabled = false;
-  let activeAudio = null;
-  let activeAudioUrl = '';
+  let audioContext = null;
+  let activeSpeechId = '';
+  let nextAudioTime = 0;
+  const activeSources = new Set();
   let assistantOpen = false;
   let resizeFrame = 0;
   let lastSurfaceHeight = 0;
@@ -38,33 +40,63 @@
     voiceButton.setAttribute('aria-pressed', String(voiceEnabled));
   }
 
-  function stopVoice() {
-    if (activeAudio) {
-      activeAudio.pause();
-      activeAudio = null;
+  function getAudioContext() {
+    if (!audioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioContext = new AudioContextClass({ latencyHint: 'interactive' });
     }
-    if (activeAudioUrl) {
-      URL.revokeObjectURL(activeAudioUrl);
-      activeAudioUrl = '';
+    return audioContext;
+  }
+
+  function stopVoice(notifyMain = true) {
+    activeSpeechId = '';
+    nextAudioTime = 0;
+    for (const source of activeSources) {
+      try { source.stop(); } catch (error) {}
     }
+    activeSources.clear();
+    if (notifyMain) void window.notchAPI?.stopPaimonSpeech?.();
+  }
+
+  function queuePcmChunk(payload) {
+    if (!payload || payload.type !== 'chunk' || payload.id !== activeSpeechId || !payload.pcm16_base64) return;
+    const context = getAudioContext();
+    if (!context) return;
+    const binary = atob(payload.pcm16_base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const samples = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+    const buffer = context.createBuffer(1, samples.length, Number(payload.sample_rate) || 24000);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index += 1) channel[index] = samples[index] / 32768;
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    activeSources.add(source);
+    source.addEventListener('ended', () => activeSources.delete(source), { once: true });
+    // Keep a tiny lead so adjacent PCM chunks meet without clicks, while the first
+    // sound still starts immediately instead of waiting for the whole sentence.
+    const startAt = Math.max(context.currentTime + 0.045, nextAudioTime);
+    source.start(startAt);
+    nextAudioTime = startAt + buffer.duration;
   }
 
   async function speak(text) {
     if (!voiceEnabled || !window.notchAPI?.speakPaimon) return;
     stopVoice();
+    const id = window.crypto?.randomUUID?.() || `speech-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    activeSpeechId = id;
+    const context = getAudioContext();
+    if (context?.state === 'suspended') void context.resume();
     const previousStatus = status.textContent;
-    status.textContent = '正在生成本地声音…';
+    status.textContent = '正在准备声音…';
     try {
-      const result = await window.notchAPI.speakPaimon(text);
-      if (!result || !result.ok || !result.base64) return;
-      const bytes = Uint8Array.from(atob(result.base64), (char) => char.charCodeAt(0));
-      activeAudioUrl = URL.createObjectURL(new Blob([bytes], { type: result.mimeType || 'audio/wav' }));
-      activeAudio = new Audio(activeAudioUrl);
-      activeAudio.addEventListener('ended', stopVoice, { once: true });
-      await activeAudio.play();
+      const result = await window.notchAPI.speakPaimon({ id, text });
+      if (!result?.ok && result?.error !== 'tts_cancelled') return;
     } catch (error) {
       // 文本回答已经完成；声音失败不覆盖文字结果。
     } finally {
+      if (activeSpeechId === id) activeSpeechId = '';
       status.textContent = previousStatus === '正在想…' ? '只在本机回答' : previousStatus;
     }
   }
@@ -154,6 +186,7 @@
     assistantOpen = true;
     lastSurfaceHeight = surface.height;
     panel.style.removeProperty('visibility');
+    if (voiceEnabled) void window.notchAPI?.warmPaimonSpeech?.();
     requestAnimationFrame(() => panel.classList.add('is-visible'));
     setTimeout(() => {
       input.focus({ preventScroll: true });
@@ -313,7 +346,10 @@
     try { localStorage.setItem('paimon-voice-enabled-v1', String(voiceEnabled)); } catch (error) {}
     updateVoiceButton();
     if (!voiceEnabled) stopVoice();
-    else if (reply && !reply.hidden && reply.textContent && reply.dataset.tone !== 'loading') void speak(reply.textContent);
+    else {
+      void window.notchAPI?.warmPaimonSpeech?.();
+      if (reply && !reply.hidden && reply.textContent && reply.dataset.tone !== 'loading') void speak(reply.textContent);
+    }
   });
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -333,6 +369,13 @@
 
   window.notchAPI?.onOpenPaimonAssistant?.(openAssistant);
   window.notchAPI?.onClosePaimonAssistant?.(closeAssistant);
+  window.notchAPI?.onPaimonSpeechEvent?.((payload) => {
+    if (payload?.id !== activeSpeechId) return;
+    if (payload.type === 'chunk') {
+      status.textContent = '正在说…';
+      queuePcmChunk(payload);
+    }
+  });
   window.notchAPI?.getPaimonStatus?.().then((result) => {
     if (modelBadge) modelBadge.textContent = result && result.available ? '本地 4B' : '模型未安装';
   }).catch(() => {});

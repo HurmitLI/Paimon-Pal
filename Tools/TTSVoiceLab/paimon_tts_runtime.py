@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Generate one Paimon Pal utterance with the approved fixed P1 voice."""
+"""Generate Paimon Pal speech, either once or as a persistent streaming worker."""
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
+import queue
+import sys
+import threading
 import time
 from pathlib import Path
 
@@ -20,62 +24,76 @@ PAIMON_REFERENCE_TEXT = (
     "嘿，你回来啦！今天想先休息一会儿，"
     "还是让我陪你做点事情呀？"
 )
+STREAMING_INTERVAL_SECONDS = 0.32
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--reference", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--text", required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--text")
+    parser.add_argument("--server", action="store_true")
     return parser.parse_args()
 
 
-def main() -> None:
-    args = parse_args()
-    model_path = args.model.expanduser().resolve()
-    reference_path = args.reference.expanduser().resolve()
-    output_path = args.output.expanduser().resolve()
-    text = args.text.strip()
+def emit(payload: dict) -> None:
+    print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), flush=True)
 
+
+def validate_paths(model_path: Path, reference_path: Path) -> None:
     if not model_path.is_dir():
         raise SystemExit(f"TTS model is missing: {model_path}")
     if not reference_path.is_file():
         raise SystemExit(f"TTS voice reference is missing: {reference_path}")
+
+
+def load_paimon_model(model_path: Path):
+    mx.random.seed(PAIMON_VOICE_SEED)
+    model = load_model(model_path)
+    # Lock the accepted P1 reference voice. VoiceDesign can vary between turns.
+    model.config.tts_model_type = "base"
+    return model
+
+
+def generation_options(reference_path: Path) -> dict:
+    return {
+        "ref_audio": str(reference_path),
+        "ref_text": PAIMON_REFERENCE_TEXT,
+        "lang_code": "Chinese",
+        "temperature": 0.65,
+        "top_k": 30,
+        "top_p": 0.8,
+        "repetition_penalty": 1.5,
+        "max_tokens": 768,
+        "verbose": False,
+    }
+
+
+def audio_to_pcm16(audio) -> tuple[bytes, int]:
+    mx.eval(audio)
+    values = np.asarray(audio, dtype=np.float32).reshape(-1)
+    pcm = (np.clip(values, -1.0, 1.0) * 32767.0).astype("<i2", copy=False)
+    return pcm.tobytes(), len(values)
+
+
+def run_once(args: argparse.Namespace, model_path: Path, reference_path: Path) -> None:
+    if args.output is None or not args.text:
+        raise SystemExit("--output and --text are required unless --server is used")
+    output_path = args.output.expanduser().resolve()
+    text = args.text.strip()
     if not text or len(text) > 220:
         raise SystemExit("TTS text must contain 1 to 220 characters")
 
-    os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = output_path.with_suffix(".partial.wav")
     temporary_path.unlink(missing_ok=True)
 
     load_started = time.perf_counter()
-    model = load_model(model_path)
+    model = load_paimon_model(model_path)
     load_seconds = time.perf_counter() - load_started
-
-    # VoiceDesign 会按每句文本重新设计音色，同一描述也可能听起来像不同人。
-    # 当前锁定的 mlx-audio 0.5.0 模型包含语音编码器，因此改用已验收 P1
-    # 样音做 ICL 参考声纹；后续句子只改变内容和语气，不再重新抽取声纹。
-    model.config.tts_model_type = "base"
-    mx.random.seed(PAIMON_VOICE_SEED)
     generation_started = time.perf_counter()
-    results = list(
-        model.generate(
-            text=text,
-            ref_audio=str(reference_path),
-            ref_text=PAIMON_REFERENCE_TEXT,
-            lang_code="Chinese",
-            temperature=0.65,
-            top_k=30,
-            top_p=0.8,
-            repetition_penalty=1.5,
-            max_tokens=768,
-            verbose=False,
-        )
-    )
+    results = list(model.generate(text=text, **generation_options(reference_path)))
     generation_seconds = time.perf_counter() - generation_started
     if not results:
         raise RuntimeError("TTS produced no audio")
@@ -87,7 +105,6 @@ def main() -> None:
     audio_array = np.asarray(audio, dtype=np.float32)
     audio_write(temporary_path, audio_array, sample_rate, format="wav")
     temporary_path.replace(output_path)
-
     report = {
         "output": str(output_path),
         "sample_rate": sample_rate,
@@ -100,6 +117,126 @@ def main() -> None:
     print("PAIMON_TTS_RESULT_BEGIN")
     print(json.dumps(report, ensure_ascii=False))
     print("PAIMON_TTS_RESULT_END")
+
+
+class StreamingWorker:
+    def __init__(self, model_path: Path, reference_path: Path) -> None:
+        self.model_path = model_path
+        self.reference_path = reference_path
+        self.commands: queue.Queue[dict] = queue.Queue()
+        self.cancel_event = threading.Event()
+        self.shutdown_event = threading.Event()
+
+    def read_commands(self) -> None:
+        for raw_line in sys.stdin:
+            try:
+                command = json.loads(raw_line)
+            except (TypeError, ValueError):
+                continue
+            command_type = command.get("type")
+            if command_type in {"cancel", "shutdown", "synthesize"}:
+                self.cancel_event.set()
+            if command_type == "shutdown":
+                self.shutdown_event.set()
+            self.commands.put(command)
+
+    def next_synthesis(self) -> dict | None:
+        command = self.commands.get()
+        if command.get("type") == "shutdown":
+            return None
+        if command.get("type") != "synthesize":
+            return {}
+        # A new sentence supersedes older queued sentences. This keeps replies snappy.
+        latest = command
+        while True:
+            try:
+                candidate = self.commands.get_nowait()
+            except queue.Empty:
+                break
+            if candidate.get("type") == "shutdown":
+                self.shutdown_event.set()
+                return None
+            if candidate.get("type") == "synthesize":
+                latest = candidate
+        return latest
+
+    def run(self) -> None:
+        reader = threading.Thread(target=self.read_commands, name="tts-command-reader", daemon=True)
+        reader.start()
+        load_started = time.perf_counter()
+        model = load_paimon_model(self.model_path)
+        emit({"type": "ready", "load_seconds": round(time.perf_counter() - load_started, 3)})
+
+        while not self.shutdown_event.is_set():
+            command = self.next_synthesis()
+            if command is None:
+                break
+            if not command:
+                continue
+            request_id = str(command.get("id") or "")
+            text = str(command.get("text") or "").strip()[:220]
+            if not request_id or not text:
+                emit({"type": "error", "id": request_id, "error": "empty_text"})
+                continue
+
+            self.cancel_event.clear()
+            emit({"type": "start", "id": request_id})
+            started = time.perf_counter()
+            audio_bytes = 0
+            audio_samples = 0
+            first_chunk_ms = None
+            try:
+                results = model.generate(
+                    text=text,
+                    stream=True,
+                    streaming_interval=STREAMING_INTERVAL_SECONDS,
+                    **generation_options(self.reference_path),
+                )
+                for sequence, result in enumerate(results):
+                    if self.cancel_event.is_set() or self.shutdown_event.is_set():
+                        emit({"type": "cancelled", "id": request_id})
+                        break
+                    pcm, samples = audio_to_pcm16(result.audio)
+                    if not pcm:
+                        continue
+                    if first_chunk_ms is None:
+                        first_chunk_ms = round((time.perf_counter() - started) * 1000)
+                    audio_bytes += len(pcm)
+                    audio_samples += samples
+                    emit({
+                        "type": "chunk",
+                        "id": request_id,
+                        "sequence": sequence,
+                        "sample_rate": int(result.sample_rate),
+                        "pcm16_base64": base64.b64encode(pcm).decode("ascii"),
+                    })
+                else:
+                    emit({
+                        "type": "done",
+                        "id": request_id,
+                        "audio_bytes": audio_bytes,
+                        "audio_seconds": round(audio_samples / 24000, 3),
+                        "first_chunk_ms": first_chunk_ms,
+                        "generation_seconds": round(time.perf_counter() - started, 3),
+                    })
+            except Exception as error:  # protocol must survive a failed utterance
+                emit({"type": "error", "id": request_id, "error": str(error)[:400]})
+            finally:
+                mx.clear_cache()
+
+
+def main() -> None:
+    args = parse_args()
+    model_path = args.model.expanduser().resolve()
+    reference_path = args.reference.expanduser().resolve()
+    validate_paths(model_path, reference_path)
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    if args.server:
+        StreamingWorker(model_path, reference_path).run()
+    else:
+        run_once(args, model_path, reference_path)
 
 
 if __name__ == "__main__":
