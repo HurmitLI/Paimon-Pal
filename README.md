@@ -1,10 +1,10 @@
 # Paimon Pal（PP）
 
-Paimon Pal 是一款带本地派蒙桌宠的原生 macOS 刘海交互工具，简称 PP。它把 MacBook 屏幕顶部的物理刘海扩展为陪伴、状态提示和快捷操作入口。
+Paimon Pal 是一款带本地派蒙桌宠的 macOS 刘海交互工具，简称 PP。它把 MacBook 屏幕顶部的物理刘海扩展为陪伴、状态提示和快捷操作入口。
 
-当前版本：`0.5.0`，是个人本机使用的小项目，尚未完成 Developer ID 正式签名和苹果公证。
+当前稳定版本：[`0.5.1`](https://github.com/HurmitLI/Paimon-Pal/releases/latest)，支持 macOS 13.0+ 与 Apple Silicon。当前采用 ad-hoc 签名，尚未完成 Developer ID 正式签名和苹果公证。
 
-为兼容已有设置与本地数据，Xcode 工程名、Bundle ID 和沙盒内部目录仍保留旧技术名称 `NotchFlow`；这些内部名称不影响用户看到的 Paimon Pal 品牌。
+当前正式版本位于 `ElectronRebase/`，使用 Electron 44；早期 Xcode 工程继续保留为原生可行性验证记录，不是当前安装包入口。
 
 ## 当前功能
 
@@ -20,11 +20,11 @@ Paimon Pal 是一款带本地派蒙桌宠的原生 macOS 刘海交互工具，�
 - 生产力工具：待办与截止时间、Markdown 随笔记、公开链接收藏、默认关闭的隐私剪贴板历史、本地录音与设备端语音识别、按需镜子、macOS Keychain 保险箱。
 - AI 任务提醒：只监听 `127.0.0.1:43821`，支持 Codex、Claude 和 GPT 通过本机 HTTP 回调返回任务完成状态。
 - 派蒙工具：可用自然语言新建待办和随笔记，以及打开工作台的指定页面。
-- 设置：功能开关、菜单栏入口、暂停、登录启动、权限状态、显示器和全屏策略。
+- 设置：功能开关、音乐播放器、桌面派蒙启停、菜单栏入口、登录启动、数据目录和权限配置。
 
 Spotify 已暂缓，不属于当前 MVP 验收范围。屏幕亮度没有面向普通第三方 App 的稳定公开通用接口，因此不显示猜测数值。
 
-桌宠形象素材仅用于个人学习、课程作业和非商业演示，不包含公开分发或商业使用授权。
+桌宠形象素材仅用于个人使用、内部验证和非商业演示，不包含公开分发或商业使用授权。
 
 ## 使用方法
 
@@ -34,6 +34,14 @@ Spotify 已暂缓，不属于当前 MVP 验收范围。屏幕亮度没有面向�
 4. 也可以使用菜单栏里的 Paimon Pal 图标打开工作台、设置、暂停或退出。
 
 首次启动会显示使用与隐私说明，但不会自动申请权限。Apple Music 自动化、通知、麦克风和语音识别权限只在使用相关功能时按需申请。
+
+## 下载与安装
+
+1. 前往 [GitHub Releases](https://github.com/HurmitLI/Paimon-Pal/releases/latest) 下载 `Paimon-Pal-0.5.1-arm64.dmg`。
+2. 打开 DMG，将 `Paimon Pal.app` 拖入“应用程序”。
+3. 首次启动若被 macOS 拦截，前往“系统设置 → 隐私与安全性”，选择“仍要打开”。
+
+主安装包约 147 MB，不重复携带约 5.8 GB 的可选 4B 模型权重与 P1 语音资源；已有本地资源会继续保留。
 
 ## 文件安全
 
@@ -47,28 +55,24 @@ Spotify 已暂缓，不属于当前 MVP 验收范围。屏幕亮度没有面向�
 
 ## 本地开发与验证
 
-环境要求：
-
-- macOS 14 或更高版本
-- Xcode 和 Apple Clang/Swift 工具链
+环境要求：Node.js 22.12.0+，打包时需要 macOS 与 Xcode 命令行工具。
 
 运行测试：
 
 ```bash
-xcodebuild test -project NotchFlow.xcodeproj -scheme NotchFlow \
-  -destination 'platform=macOS'
+cd ElectronRebase
+npm install
+npm test
 ```
 
 构建 Apple Silicon Release：
 
 ```bash
-xcodebuild build -project NotchFlow.xcodeproj -scheme NotchFlow \
-  -configuration Release \
-  -destination 'platform=macOS,arch=arm64' \
-  CODE_SIGNING_ALLOWED=NO
+cd ElectronRebase
+npm run build
 ```
 
-未完成 Developer ID 签名和公证的构建只适合本机开发验证，不能当作公开发布包。
+未完成 Developer ID 签名和公证的构建可用于本机与受控分发，但首次启动需要手动确认“仍要打开”，且不能表述为经过 Apple 认证的公开商业发行版。
 
 ## 文档
 
@@ -81,11 +85,11 @@ xcodebuild build -project NotchFlow.xcodeproj -scheme NotchFlow \
 
 ## 当前验证结果
 
-- XCTest：147 项通过，0 失败。
+- Electron 桌面端：106 项自动检查通过，0 失败；官网：19 项测试与 ESLint 通过。
 - 本地工作台 8 个页面已完成真实 UI 巡检，待办新增/保存/删除和 AI 任务回调已完成实际链路验证。
 - 内置本地模型可正常加载并生成简体中文回复。
 - 本地 TTS 已在 App 内完成模型预热、流式生成、分块播放、打断和空闲释放验证。
 - 桌宠动画、连续聊天、上下文清理、计时工具与窗口工具均已完成本机人工验证。
-- 0.3.0 加入按需加载的本地模型后，静默与推理阶段性能仍需分别记录，旧版性能数字不再直接沿用。
+- `0.5.1` DMG 已完成签名、镜像、版本、SHA-256 与打包后实际启动验证。
 
 上述结果来自当前 Apple Silicon 刘海屏 MacBook Pro，不代表所有机型与系统版本。
