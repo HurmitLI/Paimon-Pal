@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'index.html'), 'utf8');
+const mainJs = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'app.js'), 'utf8');
 const workspaceJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'workspace.js'), 'utf8');
 const effectsJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'effects.js'), 'utf8');
@@ -93,4 +94,12 @@ test('Paimon voice silently primes cold inference and stabilizes every reply', (
   assert.match(ttsRuntime, /"primed": audio_samples > 0/);
   assert.match(ttsRuntime, /reset_voice_sampling\(\)\s+results = model\.generate/);
   assert.match(assistantJs, /const context = await prepareAudioContext\(\)/);
+});
+
+test('current-window cards have a permission-free AppKit fallback', () => {
+  assert.match(mainJs, /NSWorkspace\.sharedWorkspace\.runningApplications/);
+  assert.match(mainJs, /rows\.length \? rows : fallbackRows/);
+  assert.match(mainJs, /runningApp\.activateWithOptions\(3\)/);
+  assert.doesNotMatch(mainJs, /desktopCapturer/);
+  assert.doesNotMatch(mainJs, /screen_recording_permission_required/);
 });

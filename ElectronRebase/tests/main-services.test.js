@@ -7,8 +7,6 @@ const {
   extractFaviconHref,
   recordingExtension,
   normalizeWindowRows,
-  parseDesktopWindowId,
-  mergeWindowCaptureTitles,
   todoReminderState,
   todoReminderTimerDelay,
   taskNotificationIdentity,
@@ -20,7 +18,6 @@ const {
   installLocalWebContentsGuards,
   runOwnedOpenDialog,
   readClipboardObservation,
-  screenRecordingProbePolicy,
   taskNotificationWindowPolicy,
   prepareClipboardImagePayload,
   updateFeaturePreference,
@@ -143,19 +140,13 @@ test('normalizeWindowRows keeps all named CGWindow entries with stable window id
   ]);
 });
 
-test('desktopCapturer titles repair blank osascript window names under app screen permission', () => {
-  assert.equal(parseDesktopWindowId('window:53696:0'), 53696);
-  assert.equal(parseDesktopWindowId('screen:0:0'), 0);
-  const merged = mergeWindowCaptureTitles([
-    { pid: 650, appName: '微信', title: '', windowNumber: 53696 },
-    { pid: 42, appName: 'Code', title: '已有标题', windowNumber: 100 },
-  ], [
-    { id: 'window:53696:0', name: '微信' },
-    { id: 'window:100:0', name: '不应覆盖' },
+test('accessibility window rows work without screen-capture window numbers', () => {
+  const rows = normalizeWindowRows([
+    { pid: 10, appName: 'Code', title: '项目一', windowIndex: 0, appPath: '/Applications/Visual Studio Code.app' },
+    { pid: 10, appName: 'Code', title: '项目二', windowIndex: 1, appPath: '/Applications/Visual Studio Code.app' },
   ]);
-  assert.equal(merged[0].title, '微信');
-  assert.equal(merged[1].title, '已有标题');
-  assert.equal(normalizeWindowRows(merged).length, 2);
+  assert.deepEqual(rows.map((row) => row.id), ['window-10-0-0', 'window-10-1-1']);
+  assert.deepEqual(rows.map((row) => row.title), ['项目一', '项目二']);
 });
 
 test('todoReminderState fires once within the final hour and expires after the DDL', () => {
@@ -393,25 +384,6 @@ test('Electron 44 clipboard items decode text first and only read image bytes wh
   assert.equal(withImage.image.mimeType, 'image/png');
   assert.deepEqual(withImage.image.buffer, Buffer.from([4, 5, 6]));
   assert.equal(imageReads, 1);
-});
-
-test('screen-recording startup checks never touch capture APIs before user consent', () => {
-  assert.deepEqual(screenRecordingProbePolicy('not-determined'), {
-    hasAccess: false,
-    inspectWindowTitles: false,
-  });
-  assert.deepEqual(screenRecordingProbePolicy('denied'), {
-    hasAccess: false,
-    inspectWindowTitles: false,
-  });
-  assert.deepEqual(screenRecordingProbePolicy('granted'), {
-    hasAccess: true,
-    inspectWindowTitles: true,
-  });
-  assert.deepEqual(screenRecordingProbePolicy('unknown'), {
-    hasAccess: true,
-    inspectWindowTitles: false,
-  });
 });
 
 test('hidden task notification renderer is disposed after its queue drains', () => {

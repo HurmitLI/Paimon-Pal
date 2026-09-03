@@ -2053,25 +2053,17 @@
     if (error) {
       const empty = document.createElement('div');
       empty.className = 'window-empty permission';
-      // 两种权限的现象完全一样（列表空），但要开的开关不同，必须分开说：
-      // 「屏幕录制」决定能不能读到窗口标题，「辅助功能」决定能不能枚举和聚焦窗口。
-      // 缺屏幕录制时系统既不报错也不弹提示，所以只能由这里告诉用户。
-      const screenRecording = error === 'screen_recording_permission_required';
-      const title = screenRecording ? '需要“屏幕录制”权限' : '需要“辅助功能”权限';
-      const pane = screenRecording ? '屏幕录制与系统录音' : '辅助功能';
       const heading = document.createElement('strong');
-      heading.textContent = title;
+      heading.textContent = '需要“辅助功能”权限';
       const hint = document.createElement('span');
-      hint.textContent = screenRecording
-        ? '允许 Paimon Pal 后点“重新检测”；如果已经开启过，请先关闭再重新开启当前安装版。'
-        : `系统设置 → 隐私与安全性 → ${pane}，允许 Paimon Pal 后重试。`;
+      hint.textContent = '当前窗口只读标题并切换窗口，不再要求屏幕录制。请在系统设置 → 隐私与安全性 → 辅助功能中允许 Paimon Pal。';
       const action = document.createElement('button');
       action.type = 'button';
       action.className = 'window-permission-open';
       action.textContent = '打开系统设置';
       action.addEventListener('click', () => {
         if (window.notchAPI && typeof window.notchAPI.openPrivacySettings === 'function') {
-          window.notchAPI.openPrivacySettings(screenRecording ? 'screen-recording' : 'accessibility');
+          window.notchAPI.openPrivacySettings('accessibility');
         }
       });
       const retry = document.createElement('button');

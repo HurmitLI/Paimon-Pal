@@ -153,28 +153,6 @@ function normalizeWindowRows(rows) {
     ) === index);
 }
 
-function parseDesktopWindowId(sourceId) {
-  const match = String(sourceId || '').match(/^window:(\d+):/);
-  if (!match) return 0;
-  const value = Number(match[1]);
-  return Number.isSafeInteger(value) && value > 0 ? value : 0;
-}
-
-function mergeWindowCaptureTitles(rows, sources) {
-  if (!Array.isArray(rows)) return [];
-  const titles = new Map();
-  for (const source of Array.isArray(sources) ? sources : []) {
-    const windowNumber = parseDesktopWindowId(source && source.id);
-    const title = String(source && source.name || '').replace(/\s+/g, ' ').trim();
-    if (windowNumber && title && !titles.has(windowNumber)) titles.set(windowNumber, title);
-  }
-  return rows.map((row) => {
-    const title = String(row && row.title || '').trim();
-    if (title) return row;
-    return { ...row, title: titles.get(Number(row && row.windowNumber)) || '' };
-  });
-}
-
 function todoReminderState(todo, now = Date.now(), leadMs = 60 * 60 * 1000) {
   if (!todo || typeof todo !== 'object') return { state: 'invalid', delayMs: 0 };
   if (todo.done === true) return { state: 'done', delayMs: 0 };
@@ -389,15 +367,6 @@ async function readClipboardObservation(items, options = {}) {
   return { concealed: false, text, image };
 }
 
-function screenRecordingProbePolicy(status) {
-  if (status === 'granted') return { hasAccess: true, inspectWindowTitles: true };
-  if (['not-determined', 'denied', 'restricted'].includes(status)) {
-    return { hasAccess: false, inspectWindowTitles: false };
-  }
-  // 未知状态下不主动触碰捕获 API，避免在启动阶段制造不可预测的系统弹窗。
-  return { hasAccess: true, inspectWindowTitles: false };
-}
-
 function taskNotificationWindowPolicy(state) {
   const active = Boolean(state && state.active);
   const queueLength = Math.max(0, Number(state && state.queueLength) || 0);
@@ -534,8 +503,6 @@ module.exports = {
   extractFaviconHref,
   recordingExtension,
   normalizeWindowRows,
-  parseDesktopWindowId,
-  mergeWindowCaptureTitles,
   todoReminderState,
   todoReminderTimerDelay,
   taskNotificationIdentity,
@@ -549,7 +516,6 @@ module.exports = {
   installLocalWebContentsGuards,
   runOwnedOpenDialog,
   readClipboardObservation,
-  screenRecordingProbePolicy,
   taskNotificationWindowPolicy,
   reduceClipboardObservation,
   createWorkspacePersistenceGate,

@@ -88,6 +88,20 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 850));
     const expanded = await evaluate(mainClient, `document.getElementById('app').classList.contains('expanded')`);
     if (!expanded) throw new Error('notch workspace did not expand');
+    const windowDeadline = Date.now() + 4_000;
+    let windowAudit = null;
+    while (Date.now() < windowDeadline) {
+      windowAudit = await evaluate(mainClient, `({
+        permission: Boolean(document.querySelector('#window-list .permission')),
+        count: document.querySelectorAll('#window-list .window-item').length,
+        labels: [...document.querySelectorAll('#window-list .window-item strong')].map((item) => item.textContent)
+      })`);
+      if (!windowAudit.permission && windowAudit.count > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (!windowAudit || windowAudit.permission || windowAudit.count < 1) {
+      throw new Error(`current-window cards are unavailable: ${JSON.stringify(windowAudit)}`);
+    }
     trace('workspace expanded');
     const expandedPath = await capture(mainClient, 'paimon-pal-expanded.png');
 
@@ -409,6 +423,7 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       expandedPath,
+      windowAudit,
       assistantPath,
       assistantGeometry,
       petGeometry,

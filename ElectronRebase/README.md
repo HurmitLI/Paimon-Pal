@@ -55,7 +55,7 @@ Paimon Pal 是一个常驻 macOS 屏幕顶部的本地桌面伙伴。折叠时�
 1. 使用本项目 `dist.noindex/` 中生成的 `Paimon-Pal-*-arm64.dmg`；上游工作台的公开发行页保留在 [TO-DO Panel Releases](https://github.com/xiaopu-ai/TO-DO-Panel/releases/latest) 供来源核对。
 2. 打开 DMG，将 `Paimon Pal.app` 拖入「应用程序」。
 3. 首次启动若被 macOS 拦截，前往「系统设置 → 隐私与安全性」，点击「仍要打开」。
-4. 再次启动，根据需要授予辅助功能、屏幕录制、麦克风或摄像头权限。
+4. 再次启动，根据需要授予辅助功能、麦克风或摄像头权限。「当前窗口」只读标题并切换窗口，不需要屏幕录制权限。
 
 主 DMG 是轻量包，约 147 MB，不重复携带 4B 权重和 P1 语音运行时。这两类可选离线资源放在 `~/Library/Application Support/Paimon Pal Electron/runtime-assets/`；只更新主应用时不会再下载或覆盖它们。
 
