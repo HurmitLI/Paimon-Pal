@@ -1221,7 +1221,7 @@ function createPetWindow() {
   petWindow.loadFile(path.join(__dirname, 'renderer', 'pet.html'));
   petWindow.once('ready-to-show', () => {
     const latest = readPetState();
-    if (latest.detached) {
+    if (latest.detached && isPetEnabled()) {
       petWindow.showInactive();
       sendPetMode('idle', false);
     }
@@ -1234,6 +1234,7 @@ function createPetWindow() {
 }
 
 function showDockedPet() {
+  if (!isPetEnabled()) return { shown: false, detached: false, disabled: true };
   const state = readPetState();
   if (state.detached || currentMode === 'expanded') return { shown: false, detached: state.detached };
   const win = createPetWindow();
@@ -1250,6 +1251,7 @@ function hideDockedPet() {
 }
 
 function openPaimonAssistant() {
+  if (!isPetEnabled()) return;
   if (!mainWindow || mainWindow.isDestroyed()) createWindow();
   hideWhenCollapsed = false;
   if (!mainWindow.isVisible()) mainWindow.show();
@@ -1338,7 +1340,12 @@ function readAppSettings() {
     features: { ...DEFAULT_FEATURES, ...(stored.features || {}), home: true },
     shortcut: isValidPanelShortcut(stored.shortcut) ? stored.shortcut : 'Space',
     musicPlayer: normalizeMusicPlayerPreference(stored.musicPlayer),
+    petEnabled: stored.petEnabled !== false,
   };
+}
+
+function isPetEnabled() {
+  return readAppSettings().petEnabled;
 }
 
 function publicAppSettings() {
@@ -2002,6 +2009,7 @@ ipcMain.handle('assistant:open-surface', (event, size) => {
   if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
     return { ok: false, error: 'invalid_sender' };
   }
+  if (!isPetEnabled()) return { ok: false, error: 'pet_disabled' };
   if (!readPetState().detached && (!petWindow || petWindow.isDestroyed() || !petWindow.isVisible())) {
     showDockedPet();
   }
@@ -2045,6 +2053,7 @@ ipcMain.handle('pet:hide-docked', () => {
   return { ok: true };
 });
 ipcMain.handle('pet:detach', () => {
+  if (!isPetEnabled()) return { ok: false, error: 'pet_disabled' };
   const win = createPetWindow();
   const display = getWindowDisplay();
   const target = clampPetBounds({
@@ -2109,6 +2118,25 @@ ipcMain.handle('settings:set-music-player', (event, playerId) => {
   if (normalized !== playerId) return { ok: false, error: 'invalid' };
   const next = { ...readAppSettings(), musicPlayer: normalized };
   if (!saveAppSettings(next)) return { ok: false, error: 'save_failed' };
+  const settings = publicAppSettings();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings:changed', settings);
+  return { ok: true, settings };
+});
+ipcMain.handle('settings:set-pet-enabled', async (event, enabled) => {
+  if (typeof enabled !== 'boolean') return { ok: false, error: 'invalid' };
+  const next = { ...readAppSettings(), petEnabled: enabled };
+  if (!saveAppSettings(next)) return { ok: false, error: 'save_failed' };
+
+  if (enabled) {
+    const petState = readPetState();
+    if (petState.detached) createPetWindow();
+  } else {
+    requestClosePaimonAssistant();
+    if (currentMode === 'assistant') applyMode('collapsed');
+    await stopPaimonSpeech();
+    if (petWindow && !petWindow.isDestroyed()) petWindow.destroy();
+  }
+
   const settings = publicAppSettings();
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings:changed', settings);
   return { ok: true, settings };
@@ -3957,7 +3985,7 @@ app.whenReady().then(() => {
 
   ensureFirstRunAutoLaunch();
   createWindow();
-  createPetWindow();
+  if (isPetEnabled() && readPetState().detached) createPetWindow();
   createTray();
   watchDisplayChanges();
   ensureClipImagesDir();

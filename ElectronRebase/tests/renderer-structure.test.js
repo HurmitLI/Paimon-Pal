@@ -81,6 +81,14 @@ test('music widget supports automatic detection and a manual player preference',
   assert.doesNotMatch(html, /aria-label="汽水音乐播放器"/);
 });
 
+test('desktop Paimon can be persistently enabled or disabled from notch settings', () => {
+  assert.match(html, /id="settings-pet-enabled"/);
+  assert.match(workspaceJs, /setPetEnabled/);
+  assert.match(mainJs, /petEnabled:\s*stored\.petEnabled !== false/);
+  assert.match(mainJs, /settings:set-pet-enabled/);
+  assert.match(mainJs, /if \(!isPetEnabled\(\)\) return \{ shown: false/);
+});
+
 test('hidden visual widgets stop presentation-only background work', () => {
   assert.match(effectsJs, /setEnabled/);
   assert.match(effectsJs, /notch:home-modules-changed/);

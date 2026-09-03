@@ -737,6 +737,7 @@
   const settingsWorkspacePath = document.getElementById('settings-workspace-path');
   const settingsWorkspaceOpen = document.getElementById('settings-workspace-open');
   const settingsWorkspaceChoose = document.getElementById('settings-workspace-choose');
+  const settingsPetEnabled = document.getElementById('settings-pet-enabled');
   const settingsAutoLaunch = document.getElementById('settings-auto-launch');
   const settingsInlineNote = document.getElementById('settings-inline-note');
 
@@ -949,6 +950,7 @@
       settingsWorkspacePath.textContent = summary.workspacePath || '默认数据目录';
       settingsWorkspacePath.title = summary.workspacePath || '';
     }
+    if (settingsPetEnabled) settingsPetEnabled.checked = settingsAppSettings?.petEnabled !== false;
     if (settingsAutoLaunch) settingsAutoLaunch.checked = summary.autoLaunch;
     renderMusicPlayerSettings();
     settingsFeatureList?.querySelectorAll('input[data-settings-feature]').forEach((input) => {
@@ -1752,6 +1754,21 @@
     settingsWorkspace = await window.notchAPI?.getWorkspace?.().catch(() => settingsWorkspace);
     renderSettingsPanel();
     setSettingsNote('数据文件夹已更新。');
+  });
+  settingsPetEnabled?.addEventListener('change', async () => {
+    if (!window.notchAPI?.setPetEnabled) return;
+    const requested = settingsPetEnabled.checked;
+    settingsPetEnabled.disabled = true;
+    const result = await window.notchAPI.setPetEnabled(requested).catch(() => ({ ok: false }));
+    settingsPetEnabled.disabled = false;
+    if (!result?.ok) {
+      settingsPetEnabled.checked = !requested;
+      setSettingsNote('桌面派蒙设置保存失败，请重试。', true);
+      return;
+    }
+    settingsAppSettings = result.settings || settingsAppSettings;
+    renderSettingsPanel();
+    setSettingsNote(requested ? '桌面派蒙已启动。' : '桌面派蒙已关闭，刘海工作台仍可正常使用。');
   });
   settingsAutoLaunch?.addEventListener('change', async () => {
     if (!window.notchAPI?.setAutoLaunch) return;
