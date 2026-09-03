@@ -1789,7 +1789,15 @@ function resolveTtsRequest(id, result) {
 function handleTtsProtocolMessage(message) {
   if (!message || typeof message !== 'object') return;
   if (message.type === 'ready') {
-    if (ttsWorkerReadyResolve) ttsWorkerReadyResolve({ ok: true, loadSeconds: message.load_seconds });
+    if (ttsWorkerReadyResolve) {
+      ttsWorkerReadyResolve({
+        ok: true,
+        loadSeconds: Number(message.load_seconds) || 0,
+        primed: message.primed === true,
+        primeSeconds: Number(message.prime_seconds) || 0,
+        primeAudioSeconds: Number(message.prime_audio_seconds) || 0,
+      });
+    }
     ttsWorkerReadyResolve = null;
     return;
   }

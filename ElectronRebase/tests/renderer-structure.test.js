@@ -10,6 +10,10 @@ const effectsJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'effect
 const assistantJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'paimon-assistant.js'), 'utf8');
 const petJs = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'pet.js'), 'utf8');
 const stylesCss = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'styles.css'), 'utf8');
+const ttsRuntime = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'Tools', 'TTSVoiceLab', 'paimon_tts_runtime.py'),
+  'utf8'
+);
 
 test('clipboard rows define both favorite icons before rendering entries', () => {
   assert.match(appJs, /const starOutlineSvg\s*=/);
@@ -81,4 +85,12 @@ test('Paimon click opens a compact assistant surface without expanding the works
   assert.match(assistantJs, /onOpenWorkspaceFromNotch/);
   assert.match(assistantJs, /onEscape/);
   assert.match(petJs, /openWorkspace/);
+});
+
+test('Paimon voice silently primes cold inference and stabilizes every reply', () => {
+  assert.match(ttsRuntime, /def prime_streaming_voice/);
+  assert.match(ttsRuntime, /prime_result = prime_streaming_voice\(model, self\.reference_path\)/);
+  assert.match(ttsRuntime, /"primed": audio_samples > 0/);
+  assert.match(ttsRuntime, /reset_voice_sampling\(\)\s+results = model\.generate/);
+  assert.match(assistantJs, /const context = await prepareAudioContext\(\)/);
 });

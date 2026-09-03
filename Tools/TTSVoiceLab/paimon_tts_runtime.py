@@ -24,6 +24,7 @@ PAIMON_REFERENCE_TEXT = (
     "嘿，你回来啦！今天想先休息一会儿，"
     "还是让我陪你做点事情呀？"
 )
+PAIMON_PRIME_TEXT = "嗯，准备好了。"
 # Qwen3-TTS can technically emit at 0.32s, but its first partial decode has too
 # little future context and can distort the opening one or two Chinese syllables.
 # 0.80s still feels immediate while giving the first phonemes enough context.
@@ -73,6 +74,36 @@ def generation_options(reference_path: Path) -> dict:
     }
 
 
+def reset_voice_sampling() -> None:
+    """Keep the accepted P1 timbre stable across every visible utterance."""
+    mx.random.seed(PAIMON_VOICE_SEED)
+
+
+def prime_streaming_voice(model, reference_path: Path) -> dict:
+    """Run the first streaming inference silently so users never hear cold-start audio."""
+    started = time.perf_counter()
+    audio_samples = 0
+    sample_rate = 24000
+    reset_voice_sampling()
+    for result in model.generate(
+        text=PAIMON_PRIME_TEXT,
+        stream=True,
+        streaming_interval=STREAMING_INTERVAL_SECONDS,
+        **generation_options(reference_path),
+    ):
+        mx.eval(result.audio)
+        audio_samples += int(np.asarray(result.audio).size)
+        sample_rate = int(result.sample_rate)
+    # The priming sentence must not advance the sampling state used by the first
+    # user-visible sentence. Reset again so first and later replies share one voice.
+    reset_voice_sampling()
+    return {
+        "primed": audio_samples > 0,
+        "prime_seconds": round(time.perf_counter() - started, 3),
+        "prime_audio_seconds": round(audio_samples / sample_rate, 3) if sample_rate else 0,
+    }
+
+
 def audio_to_pcm16(audio) -> tuple[bytes, int]:
     mx.eval(audio)
     values = np.asarray(audio, dtype=np.float32).reshape(-1)
@@ -96,6 +127,7 @@ def run_once(args: argparse.Namespace, model_path: Path, reference_path: Path) -
     model = load_paimon_model(model_path)
     load_seconds = time.perf_counter() - load_started
     generation_started = time.perf_counter()
+    reset_voice_sampling()
     results = list(model.generate(text=text, **generation_options(reference_path)))
     generation_seconds = time.perf_counter() - generation_started
     if not results:
@@ -168,7 +200,13 @@ class StreamingWorker:
         reader.start()
         load_started = time.perf_counter()
         model = load_paimon_model(self.model_path)
-        emit({"type": "ready", "load_seconds": round(time.perf_counter() - load_started, 3)})
+        load_seconds = time.perf_counter() - load_started
+        prime_result = prime_streaming_voice(model, self.reference_path)
+        emit({
+            "type": "ready",
+            "load_seconds": round(load_seconds, 3),
+            **prime_result,
+        })
 
         while not self.shutdown_event.is_set():
             command = self.next_synthesis()
@@ -189,6 +227,7 @@ class StreamingWorker:
             audio_samples = 0
             first_chunk_ms = None
             try:
+                reset_voice_sampling()
                 results = model.generate(
                     text=text,
                     stream=True,

@@ -268,9 +268,14 @@ async function main() {
     await evaluate(mainClient, `window.notchAPI.dockPet()`);
     let ttsBytes = 0;
     let ttsFirstChunkMs = 0;
+    let ttsWarmup = null;
     if (process.env.PAIMON_TEST_TTS === '1') {
       const warmResult = await evaluate(mainClient, `window.notchAPI.warmPaimonSpeech()`);
       if (!warmResult || !warmResult.ok) throw new Error(`local TTS warmup failed: ${JSON.stringify(warmResult)}`);
+      if (!warmResult.primed || warmResult.primeAudioSeconds <= 0) {
+        throw new Error(`local TTS did not finish silent voice priming: ${JSON.stringify(warmResult)}`);
+      }
+      ttsWarmup = warmResult;
       const ttsResult = await evaluate(mainClient, `new Promise((resolve) => {
         const id = 'qa-tts-' + Date.now();
         let chunks = 0;
@@ -419,6 +424,7 @@ async function main() {
       expressionMetrics,
       ttsBytes,
       ttsFirstChunkMs,
+      ttsWarmup,
       petClickAssistant,
       assistantAfterEscape,
       dockTarget,

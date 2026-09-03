@@ -48,6 +48,14 @@
     return audioContext;
   }
 
+  async function prepareAudioContext() {
+    const context = getAudioContext();
+    if (context?.state === 'suspended') {
+      try { await context.resume(); } catch (error) {}
+    }
+    return context;
+  }
+
   function stopVoice(notifyMain = true) {
     activeSpeechId = '';
     nextAudioTime = 0;
@@ -94,8 +102,8 @@
     stopVoice();
     const id = window.crypto?.randomUUID?.() || `speech-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     activeSpeechId = id;
-    const context = getAudioContext();
-    if (context?.state === 'suspended') void context.resume();
+    const context = await prepareAudioContext();
+    if (context) nextAudioTime = context.currentTime;
     const previousStatus = status.textContent;
     status.textContent = '正在准备声音…';
     try {
