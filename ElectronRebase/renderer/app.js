@@ -462,8 +462,20 @@ const PANEL_MOTION_FALLBACK_MS = 440;
 const OPENING_SETTLE_MS = 360;
 const HEAVY_LOAD_AFTER_OPEN_MS = 360;
 
-function nextAnimationFrame() {
-  return new Promise((resolve) => requestAnimationFrame(resolve));
+function nextAnimationFrame(timeoutMs = 120) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let frameId = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    frameId = requestAnimationFrame(finish);
+  });
 }
 
 function waitForPanelMotion() {
