@@ -1281,6 +1281,9 @@ function toggleVisibility() {
 
 function isAutoLaunchEnabled() {
   if (process.platform !== 'darwin') return false;
+  // 开发模式的可执行文件是 node_modules 内的 Electron.app。将它注册为登录项，
+  // 下次开机只会显示 Electron 默认欢迎页，而不是带入口参数的 Paimon Pal。
+  if (!app.isPackaged) return false;
   try {
     return app.getLoginItemSettings().openAtLogin;
   } catch (e) {
@@ -1290,6 +1293,7 @@ function isAutoLaunchEnabled() {
 
 function setAutoLaunch(enabled) {
   if (process.platform !== 'darwin') return false;
+  if (!app.isPackaged) return false;
   try {
     app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: false });
     return isAutoLaunchEnabled() === enabled;

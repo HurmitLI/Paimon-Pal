@@ -13,6 +13,7 @@ const readmePath = path.join(projectRoot, 'README.md');
 const websiteDownloadPath = path.join(projectRoot, 'website', 'app', 'landingDownload.mjs');
 const websiteContentPath = path.join(projectRoot, 'website', 'app', 'landingContent.ts');
 const runtimeVerificationPath = path.join(projectRoot, 'scripts', 'verify-runtime-assets.js');
+const mainProcessPath = path.join(projectRoot, 'main.js');
 const packageVersion = require(path.join(projectRoot, 'package.json')).version;
 const packageConfig = require(path.join(projectRoot, 'package.json'));
 
@@ -124,4 +125,16 @@ test('release version and public download entry points stay aligned', () => {
   assert.match(readme, /https:\/\/github\.com\/HurmitLI\/Paimon-Pal\/releases\/latest/);
   assert.match(websiteContent, /DOWNLOAD_URL\s*=\s*"https:\/\/github\.com\/HurmitLI\/Paimon-Pal\/releases\/latest"/);
   assert.match(websiteDownload, /LATEST_RELEASE_API_URL\s*=\s*"https:\/\/api\.github\.com\/repos\/HurmitLI\/Paimon-Pal\/releases\/latest"/);
+});
+
+test('development Electron cannot register itself as a macOS login item', () => {
+  const source = fs.readFileSync(mainProcessPath, 'utf8');
+  assert.match(
+    source,
+    /function isAutoLaunchEnabled\(\)[\s\S]*?if \(!app\.isPackaged\) return false;/
+  );
+  assert.match(
+    source,
+    /function setAutoLaunch\(enabled\)[\s\S]*?if \(!app\.isPackaged\) return false;[\s\S]*?app\.setLoginItemSettings/
+  );
 });
